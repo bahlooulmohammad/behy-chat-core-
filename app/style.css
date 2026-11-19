@@ -1011,3 +1011,17 @@ body.dark .profile-card {
   }
 
     }
+/* FIX: remove duplicate menu */
+#chat-section .sidebar-tabs {
+  display: none !important;
+}
+
+#chat-section .mobile-nav {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  #chat-section .mobile-nav {
+    display: flex !important;
+  }
+}
