@@ -8,11 +8,7 @@ if (!config || !config.url || !config.anonKey) {
   throw new Error("Supabase configuration missing");
 }
 
-const db = window.supabase.createClient(
-  config.url,
-  config.anonKey
-);
-
+const db = window.supabase.createClient(config.url, config.anonKey);
 const $ = (id) => document.getElementById(id);
 
 let currentUser = null;
@@ -29,7 +25,6 @@ function showMessage(message, type = "info") {
     alert(message);
     return;
   }
-
   el.textContent = message;
   el.style.color = type === "error" ? "#ff7777" : "#65c9ff";
 }
@@ -38,13 +33,8 @@ function cleanUsername(value) {
   return String(value || "").trim().toLowerCase();
 }
 
-function usernameEmail(username) {
-  // آدرس ساختگی با قالب معتبر؛ ایمیل واقعی کاربر نیست.
-  return `${username}@users.example.com`;
-}
-
 function escapeHTML(value) {
-  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
     "&": "&amp;",
     "<": "&lt;",
     ">": "&gt;",
@@ -54,13 +44,25 @@ function escapeHTML(value) {
 }
 
 function showAuth() {
-  if ($("auth-section")) $("auth-section").style.display = "block";
-  if ($("chat-section")) $("chat-section").style.display = "none";
+  if ($("auth-section")) {
+    $("auth-section").hidden = false;
+    $("auth-section").style.display = "block";
+  }
+  if ($("chat-section")) {
+    $("chat-section").hidden = true;
+    $("chat-section").style.display = "none";
+  }
 }
 
 function showChat() {
-  if ($("auth-section")) $("auth-section").style.display = "none";
-  if ($("chat-section")) $("chat-section").style.display = "block";
+  if ($("auth-section")) {
+    $("auth-section").hidden = true;
+    $("auth-section").style.display = "none";
+  }
+  if ($("chat-section")) {
+    $("chat-section").hidden = false;
+    $("chat-section").style.display = "block";
+  }
 }
 
 /* ---------- Authentication ---------- */
@@ -68,13 +70,8 @@ function showChat() {
 function setAuthMode(mode) {
   authMode = mode;
 
-  if ($("login-tab")) {
-    $("login-tab").classList.toggle("active", mode === "login");
-  }
-
-  if ($("signup-tab")) {
-    $("signup-tab").classList.toggle("active", mode === "signup");
-  }
+  $("login-tab")?.classList.toggle("active", mode === "login");
+  $("signup-tab")?.classList.toggle("active", mode === "signup");
 
   if ($("auth-submit")) {
     $("auth-submit").textContent =
@@ -93,63 +90,50 @@ async function handleAuth(event) {
 
   const username = cleanUsername($("username")?.value);
   const password = $("password")?.value || "";
+  const submit = $("auth-submit");
 
   if (!/^[a-z0-9_]{3,24}$/.test(username)) {
-    showMessage(
-      "نام کاربری باید ۳ تا ۲۴ حرف انگلیسی، عدد یا زیرخط باشد.",
-      "error"
-    );
+    showMessage("نام کاربری باید ۳ تا ۲۴ حرف انگلیسی، عدد یا زیرخط باشد.", "error");
     return;
   }
 
-  if (password.length < 8) {
-    showMessage("رمز عبور باید حداقل ۸ کاراکتر باشد.", "error");
+  if (password.length < 8 || password.length > 128) {
+    showMessage("رمز عبور باید بین ۸ تا ۱۲۸ کاراکتر باشد.", "error");
     return;
   }
 
-  const submit = $("auth-submit");
   if (submit) submit.disabled = true;
 
   try {
-    const email = usernameEmail(username);
-
-    if (authMode === "signup") {
-      const { data, error } = await db.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            username,
-            display_name: username
-          }
-        }
-      });
-
-      if (error) throw error;
-
-      if (!data.session) {
-        showMessage(
-          "حساب ساخته شد؛ تأیید ایمیل در تنظیمات سرور باید خاموش باشد."
-        );
-        return;
-      }
-
-      showMessage("حساب ساخته شد. در حال ورود...");
-      await loadUser();
-    } else {
-      const { error } = await db.auth.signInWithPassword({
-        email,
+    const response = await fetch("/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: authMode === "signup" ? "register" : "login",
+        username,
         password
-      });
+      })
+    });
 
-      if (error) throw error;
+    const result = await response.json();
 
-      showMessage("ورود موفق بود.");
-      await loadUser();
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || "ورود یا ثبت‌نام ناموفق بود.");
     }
+
+    const { error } = await db.auth.setSession({
+      access_token: result.session.access_token,
+      refresh_token: result.session.refresh_token
+    });
+
+    if (error) throw error;
+
+    showMessage("ورود موفق بود.");
+    await loadUser();
+
   } catch (error) {
     console.error(error);
-    showMessage(error.message || "خطا در ورود یا ثبت‌نام", "error");
+    showMessage(error.message || "ارتباط با سرور برقرار نشد.", "error");
   } finally {
     if (submit) submit.disabled = false;
   }
@@ -158,8 +142,7 @@ async function handleAuth(event) {
 /* ---------- User Profile ---------- */
 
 async function loadUser() {
-  const { data: authData, error: authError } =
-    await db.auth.getUser();
+  const { data: authData, error: authError } = await db.auth.getUser();
 
   if (authError || !authData.user) {
     showAuth();
@@ -177,11 +160,8 @@ async function loadUser() {
     .upsert({
       id: currentUser.id,
       username,
-      display_name:
-        currentUser.user_metadata?.display_name || username
-    }, {
-      onConflict: "id"
-    })
+      display_name: currentUser.user_metadata?.display_name || username
+    }, { onConflict: "id" })
     .select()
     .single();
 
@@ -194,12 +174,10 @@ async function loadUser() {
   currentProfile = profile;
 
   if ($("current-user")) {
-    $("current-user").textContent =
-      profile.display_name || profile.username;
+    $("current-user").textContent = profile.display_name || profile.username;
   }
 
   showChat();
-
   await loadConversations();
   subscribeToMessages();
 }
@@ -211,8 +189,7 @@ async function searchUsers() {
 
   if (term.length < 2) {
     if ($("search-results")) {
-      $("search-results").innerHTML =
-        "<p>حداقل دو حرف وارد کنید.</p>";
+      $("search-results").innerHTML = "<p>حداقل دو حرف وارد کنید.</p>";
     }
     return;
   }
@@ -247,9 +224,7 @@ async function searchUsers() {
 
   results.querySelectorAll("[data-user-id]").forEach(button => {
     button.addEventListener("click", () => {
-      const user = data.find(
-        item => item.id === button.dataset.userId
-      );
+      const user = data.find(item => item.id === button.dataset.userId);
       if (user) openChat(user);
     });
   });
@@ -261,9 +236,7 @@ async function loadConversations() {
   const { data: messages, error } = await db
     .from("messages")
     .select("sender_id, receiver_id, created_at")
-    .or(
-      `sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`
-    )
+    .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
     .order("created_at", { ascending: false })
     .limit(200);
 
@@ -272,18 +245,15 @@ async function loadConversations() {
     return;
   }
 
-  const ids = [...new Set(
-    messages.map(message =>
-      message.sender_id === currentUser.id
-        ? message.receiver_id
-        : message.sender_id
-    )
-  )];
+  const ids = [...new Set(messages.map(message =>
+    message.sender_id === currentUser.id
+      ? message.receiver_id
+      : message.sender_id
+  ))];
 
   if (!ids.length) {
     if ($("conversation-list")) {
-      $("conversation-list").innerHTML =
-        "<p>هنوز گفت‌وگویی ندارید.</p>";
+      $("conversation-list").innerHTML = "<p>هنوز گفت‌وگویی ندارید.</p>";
     }
     return;
   }
@@ -302,8 +272,7 @@ async function loadConversations() {
   if (!list) return;
 
   list.innerHTML = users.map(user => `
-    <button class="conversation-item"
-      data-user-id="${escapeHTML(user.id)}">
+    <button class="conversation-item" data-user-id="${escapeHTML(user.id)}">
       ${escapeHTML(user.display_name || user.username)}
       <small>@${escapeHTML(user.username)}</small>
     </button>
@@ -311,9 +280,7 @@ async function loadConversations() {
 
   list.querySelectorAll("[data-user-id]").forEach(button => {
     button.addEventListener("click", () => {
-      const user = users.find(
-        item => item.id === button.dataset.userId
-      );
+      const user = users.find(item => item.id === button.dataset.userId);
       if (user) openChat(user);
     });
   });
@@ -325,15 +292,11 @@ async function openChat(user) {
   activeChat = user;
 
   if ($("chat-header")) {
-    $("chat-header").textContent =
-      user.display_name || user.username;
+    $("chat-header").textContent = user.display_name || user.username;
   }
 
   await loadMessages();
-
-  if ($("message-input")) {
-    $("message-input").focus();
-  }
+  $("message-input")?.focus();
 }
 
 async function loadMessages() {
@@ -359,9 +322,7 @@ async function loadMessages() {
   if (!container) return;
 
   container.innerHTML = data.map(message => `
-    <div class="message ${
-      message.sender_id === currentUser.id ? "sent" : "received"
-    }">
+    <div class="message ${message.sender_id === currentUser.id ? "sent" : "received"}">
       <div>${escapeHTML(message.content)}</div>
       <small>${new Date(message.created_at).toLocaleTimeString("fa-IR", {
         hour: "2-digit",
@@ -391,13 +352,11 @@ async function sendMessage(event) {
     return;
   }
 
-  const { error } = await db
-    .from("messages")
-    .insert({
-      sender_id: currentUser.id,
-      receiver_id: activeChat.id,
-      content
-    });
+  const { error } = await db.from("messages").insert({
+    sender_id: currentUser.id,
+    receiver_id: activeChat.id,
+    content
+  });
 
   if (error) {
     console.error(error);
@@ -419,34 +378,28 @@ function subscribeToMessages() {
 
   realtimeChannel = db
     .channel("behy-messages-" + currentUser.id)
-    .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "messages"
-      },
-      async (payload) => {
-        const message = payload.new;
+    .on("postgres_changes", {
+      event: "INSERT",
+      schema: "public",
+      table: "messages"
+    }, async payload => {
+      const message = payload.new;
+
+      if (
+        message.sender_id === currentUser.id ||
+        message.receiver_id === currentUser.id
+      ) {
+        await loadConversations();
 
         if (
-          message.sender_id === currentUser.id ||
-          message.receiver_id === currentUser.id
+          activeChat &&
+          (message.sender_id === activeChat.id ||
+           message.receiver_id === activeChat.id)
         ) {
-          await loadConversations();
-
-          if (
-            activeChat &&
-            (
-              message.sender_id === activeChat.id ||
-              message.receiver_id === activeChat.id
-            )
-          ) {
-            await loadMessages();
-          }
+          await loadMessages();
         }
       }
-    )
+    })
     .subscribe();
 }
 
@@ -472,16 +425,9 @@ async function logout() {
 document.addEventListener("DOMContentLoaded", async () => {
   showAuth();
 
-  $("login-tab")?.addEventListener("click", () => {
-    setAuthMode("login");
-  });
-
-  $("signup-tab")?.addEventListener("click", () => {
-    setAuthMode("signup");
-  });
-
+  $("login-tab")?.addEventListener("click", () => setAuthMode("login"));
+  $("signup-tab")?.addEventListener("click", () => setAuthMode("signup"));
   $("auth-form")?.addEventListener("submit", handleAuth);
-
   $("search-btn")?.addEventListener("click", searchUsers);
 
   $("search-user")?.addEventListener("keydown", event => {
@@ -492,7 +438,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   $("message-form")?.addEventListener("submit", sendMessage);
-
   $("logout-btn")?.addEventListener("click", logout);
 
   setAuthMode("login");
