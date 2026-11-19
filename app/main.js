@@ -1,7 +1,5 @@
-
 /* =========================================
-   BEHY MESSENGER
-   Main application script
+   BEHY MESSENGER — MAIN.JS
 ========================================= */
 
 const config = window.SUPABASE_CONFIG;
@@ -45,6 +43,13 @@ function cleanUsername(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function cleanHandle(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^@/, "");
+}
+
 function isMobile() {
   return window.matchMedia("(max-width: 760px)").matches;
 }
@@ -55,7 +60,6 @@ function notify(message) {
 
 function setBusy(button, busy, text) {
   if (!button) return;
-
   button.disabled = busy;
 
   if (busy) {
@@ -69,19 +73,16 @@ function setBusy(button, busy, text) {
 
 function showMessage(message, type = "info") {
   const el = $("auth-message");
-
   if (!el) {
     notify(message);
     return;
   }
-
   el.textContent = message;
   el.style.color = type === "error" ? "#d33" : "#2481d7";
 }
 
 function formatTime(value) {
   if (!value) return "";
-
   return new Date(value).toLocaleTimeString("fa-IR", {
     hour: "2-digit",
     minute: "2-digit"
@@ -90,7 +91,6 @@ function formatTime(value) {
 
 function formatDate(value) {
   if (!value) return "";
-
   return new Date(value).toLocaleString("fa-IR", {
     year: "numeric",
     month: "short",
@@ -104,7 +104,6 @@ function formatDate(value) {
 
 function applyTheme(theme) {
   const dark = theme === "dark";
-
   document.documentElement.dataset.theme = dark ? "dark" : "light";
 
   const root = document.documentElement.style;
@@ -140,7 +139,7 @@ function toggleTheme() {
   openSettings();
 }
 
-/* ---------- Mobile navigation ---------- */
+/* ---------- Navigation ---------- */
 
 function setMobileTab(tab) {
   document.querySelectorAll("[data-mobile-tab]").forEach(button => {
@@ -195,7 +194,6 @@ function setAuthMode(mode) {
 
 async function handleAuth(event) {
   event.preventDefault();
-
   if (isBusy) return;
 
   const username = cleanUsername($("username")?.value);
@@ -229,13 +227,7 @@ async function handleAuth(event) {
       })
     });
 
-    let result;
-
-    try {
-      result = await response.json();
-    } catch {
-      throw new Error("پاسخ سرور قابل خواندن نیست.");
-    }
+    const result = await response.json();
 
     if (!response.ok || !result.success || !result.session) {
       throw new Error(result.error || "ورود یا ثبت‌نام ناموفق بود.");
@@ -249,7 +241,6 @@ async function handleAuth(event) {
     if (error) throw error;
 
     await loadUser();
-
   } catch (error) {
     console.error("Authentication error:", error);
     showMessage(error.message || "ارتباط با سرور برقرار نشد.", "error");
@@ -259,7 +250,7 @@ async function handleAuth(event) {
   }
 }
 
-/* ---------- User profile ---------- */
+/* ---------- Profile ---------- */
 
 async function loadUser() {
   const { data, error } = await db.auth.getUser();
@@ -275,31 +266,45 @@ async function loadUser() {
     currentUser.user_metadata?.username ||
     currentUser.email?.split("@")[0];
 
-  const { data: profile, error: profileError } = await db
+  // پروفایل قبلی را حفظ می‌کند تا آیدی کاربر پاک نشود
+  const { data: existing, error: readError } = await db
     .from("profiles")
-    .upsert({
-      id: currentUser.id,
-      username,
-      display_name:
-        currentUser.user_metadata?.display_name || username
-    }, { onConflict: "id" })
-    .select()
-    .single();
+    .select("*")
+    .eq("id", currentUser.id)
+    .maybeSingle();
 
-  if (profileError) {
-    console.error("Profile error:", profileError);
-    notify("خطا در دریافت پروفایل: " + profileError.message);
+  if (readError) {
+    notify("خطا در دریافت پروفایل: " + readError.message);
     return;
   }
 
-  currentProfile = profile;
+  if (existing) {
+    currentProfile = existing;
+  } else {
+    const { data: profile, error: insertError } = await db
+      .from("profiles")
+      .insert({
+        id: currentUser.id,
+        username,
+        display_name:
+          currentUser.user_metadata?.display_name || username
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      notify("خطا در ساخت پروفایل: " + insertError.message);
+      return;
+    }
+
+    currentProfile = profile;
+  }
 
   $("current-user").textContent =
-    profile.display_name || profile.username;
+    currentProfile.display_name || currentProfile.username;
 
   showChat();
   showChats();
-
   await loadConversations();
   subscribeToMessages();
 }
@@ -311,7 +316,6 @@ async function editProfile() {
     currentProfile.display_name || currentProfile.username;
 
   const newName = prompt("نام نمایشی جدید را وارد کنید:", oldName);
-
   if (newName === null) return;
 
   const displayName = newName.trim();
@@ -329,7 +333,6 @@ async function editProfile() {
     .single();
 
   if (error) {
-    console.error(error);
     notify("ویرایش پروفایل انجام نشد: " + error.message);
     return;
   }
@@ -341,27 +344,87 @@ async function editProfile() {
   notify("نام نمایشی با موفقیت تغییر کرد.");
 }
 
-/* ---------- Search users ---------- */
+/* ---------- Set / Change Handle ---------- */
+
+async function editHandle() {
+  if (!currentUser || !currentProfile) return;
+
+  const oldHandle = currentProfile.handle || "";
+
+  const value = prompt(
+    "آیدی اختصاصی خود را وارد کنید.\n" +
+    "فقط حروف انگلیسی، عدد و زیرخط؛ ۳ تا ۲۴ کاراکتر.\n" +
+    "مثال: mohammad123",
+    oldHandle
+  );
+
+  if (value === null) return;
+
+  const handle = cleanHandle(value);
+
+  if (!/^[a-z0-9_]{3,24}$/.test(handle)) {
+    notify("آیدی باید ۳ تا ۲۴ حرف انگلیسی، عدد یا زیرخط باشد.");
+    return;
+  }
+
+  const { data: taken, error: checkError } = await db
+    .from("profiles")
+    .select("id")
+    .ilike("handle", handle)
+    .neq("id", currentUser.id)
+    .limit(1);
+
+  if (checkError) {
+    notify("بررسی آیدی ناموفق بود: " + checkError.message);
+    return;
+  }
+
+  if (taken && taken.length > 0) {
+    notify("این آیدی قبلاً انتخاب شده است. آیدی دیگری انتخاب کن.");
+    return;
+  }
+
+  const { data, error } = await db
+    .from("profiles")
+    .update({ handle })
+    .eq("id", currentUser.id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error(error);
+    notify("تغییر آیدی ناموفق بود: " + error.message);
+    return;
+  }
+
+  currentProfile = data;
+  showProfile();
+  notify("آیدی شما با موفقیت ثبت شد: @" + handle);
+}
+
+/* ---------- Search Users by Handle ---------- */
 
 async function searchUsers() {
   if (!currentUser) return;
 
-  const term = cleanUsername($("search-user")?.value);
+  const rawTerm = $("search-user")?.value || "";
+  const term = cleanHandle(rawTerm);
   const results = $("search-results");
 
   if (term.length < 2) {
-    results.textContent = "حداقل دو حرف وارد کنید.";
+    results.textContent = "حداقل دو حرف از آیدی وارد کنید.";
     return;
   }
 
   results.textContent = "در حال جست‌وجو...";
 
+  // جست‌وجو در آیدی اختصاصی و نام کاربری قدیمی
   const { data, error } = await db
     .from("profiles")
-    .select("id, username, display_name")
-    .ilike("username", `%${term}%`)
+    .select("id, username, display_name, handle")
+    .or(`handle.ilike.%${term}%,username.ilike.%${term}%`)
     .neq("id", currentUser.id)
-    .limit(20);
+    .limit(30);
 
   if (error) {
     console.error(error);
@@ -369,8 +432,8 @@ async function searchUsers() {
     return;
   }
 
-  if (!data.length) {
-    results.textContent = "کاربری پیدا نشد.";
+  if (!data || !data.length) {
+    results.textContent = "کاربری با این آیدی پیدا نشد.";
     return;
   }
 
@@ -378,8 +441,8 @@ async function searchUsers() {
     <button class="user-result"
       type="button"
       data-user-id="${escapeHTML(user.id)}">
-      ${escapeHTML(user.display_name || user.username)}
-      <small>@${escapeHTML(user.username)}</small>
+      <strong>${escapeHTML(user.display_name || user.username)}</strong>
+      <small>@${escapeHTML(user.handle || user.username)}</small>
     </button>
   `).join("");
 
@@ -408,7 +471,7 @@ async function loadConversations() {
     .limit(200);
 
   if (error) {
-    console.error("Conversation error:", error);
+    console.error(error);
     list.textContent = "خطا در دریافت گفتگوها.";
     return;
   }
@@ -435,11 +498,10 @@ async function loadConversations() {
 
   const { data: users, error: userError } = await db
     .from("profiles")
-    .select("id, username, display_name")
+    .select("id, username, display_name, handle")
     .in("id", ids);
 
   if (userError) {
-    console.error(userError);
     list.textContent = "خطا در دریافت کاربران.";
     return;
   }
@@ -452,13 +514,14 @@ async function loadConversations() {
 
   list.innerHTML = sortedUsers.map(user => {
     const last = latest.get(user.id);
+    const handle = user.handle || user.username;
 
     return `
       <button class="conversation-item"
         type="button"
         data-user-id="${escapeHTML(user.id)}">
         <strong>${escapeHTML(user.display_name || user.username)}</strong>
-        <small>@${escapeHTML(user.username)}</small>
+        <small>@${escapeHTML(handle)}</small>
         <small>${escapeHTML(last?.content || "")}</small>
         <small>${escapeHTML(formatTime(last?.created_at))}</small>
       </button>
@@ -473,7 +536,7 @@ async function loadConversations() {
   });
 }
 
-/* ---------- Chat header ---------- */
+/* ---------- Chat Header ---------- */
 
 function renderChatHeader(title, subtitle, icon) {
   $("chat-header").innerHTML = `
@@ -494,9 +557,7 @@ function renderChatHeader(title, subtitle, icon) {
     </div>
 
     <div class="chat-actions">
-      <button id="chat-info-btn"
-        type="button"
-        aria-label="اطلاعات">
+      <button id="chat-info-btn" type="button" aria-label="اطلاعات">
         <i class="fa-solid fa-ellipsis-vertical"></i>
       </button>
     </div>
@@ -509,7 +570,8 @@ function renderChatHeader(title, subtitle, icon) {
       notify(
         "گفتگو با " +
         (activeChat.display_name || activeChat.username) +
-        "\nنام کاربری: @" + activeChat.username
+        "\nآیدی: @" +
+        (activeChat.handle || activeChat.username)
       );
     } else {
       notify("پیام‌های ذخیره‌شده شما");
@@ -517,7 +579,7 @@ function renderChatHeader(title, subtitle, icon) {
   });
 }
 
-/* ---------- Open chat ---------- */
+/* ---------- Open Chat ---------- */
 
 async function openChat(user) {
   if (!user || !user.id) return;
@@ -529,7 +591,7 @@ async function openChat(user) {
 
   renderChatHeader(
     user.display_name || user.username,
-    "@" + user.username,
+    "@" + (user.handle || user.username),
     "fa-solid fa-user"
   );
 
@@ -540,7 +602,7 @@ async function openChat(user) {
   await loadMessages();
 }
 
-/* ---------- Load messages ---------- */
+/* ---------- Messages ---------- */
 
 async function loadMessages() {
   if (!activeChat || savedMode || !currentUser) return;
@@ -557,7 +619,7 @@ async function loadMessages() {
     .limit(300);
 
   if (error) {
-    console.error("Message loading error:", error);
+    console.error(error);
     $("messages").textContent = "خطا در دریافت پیام‌ها.";
     return;
   }
@@ -580,9 +642,7 @@ async function loadMessages() {
       message.sender_id === currentUser.id ? "sent" : "received"
     }">
       <div>${escapeHTML(message.content)}</div>
-
       <small>${escapeHTML(formatTime(message.created_at))}</small>
-
       <button type="button"
         class="save-message-btn"
         data-content="${escapeHTML(encodeURIComponent(message.content || ""))}">
@@ -595,13 +655,11 @@ async function loadMessages() {
   container.querySelectorAll(".save-message-btn").forEach(button => {
     button.addEventListener("click", () => {
       let content = "";
-
       try {
         content = decodeURIComponent(button.dataset.content);
       } catch {
         content = "";
       }
-
       if (content) saveMessage(content);
     });
   });
@@ -609,11 +667,10 @@ async function loadMessages() {
   container.scrollTop = container.scrollHeight;
 }
 
-/* ---------- Send messages ---------- */
+/* ---------- Send Message ---------- */
 
 async function sendMessage(event) {
   event.preventDefault();
-
   if (!currentUser) return;
 
   const input = $("message-input");
@@ -662,16 +719,15 @@ async function sendMessage(event) {
     input.value = "";
     await loadMessages();
     await loadConversations();
-
   } catch (error) {
-    console.error("Send message error:", error);
+    console.error(error);
     notify("ارسال پیام ناموفق بود: " + error.message);
   } finally {
     if (sendButton) sendButton.disabled = false;
   }
 }
 
-/* ---------- Saved messages ---------- */
+/* ---------- Saved Messages ---------- */
 
 async function saveMessage(content) {
   if (!currentUser || !content) return;
@@ -682,12 +738,11 @@ async function saveMessage(content) {
   });
 
   if (error) {
-    console.error(error);
     notify("ذخیره پیام ناموفق بود: " + error.message);
     return;
   }
 
-  notify("پیام در پیام‌های ذخیره‌شده ثبت شد.");
+  notify("پیام ذخیره شد.");
 }
 
 async function openSavedMessages() {
@@ -704,7 +759,7 @@ async function openSavedMessages() {
     "fa-solid fa-bookmark"
   );
 
-  $("message-input").placeholder = "یادداشت خصوصی خود را بنویسید...";
+  $("message-input").placeholder = "یادداشت خصوصی بنویسید...";
   $("message-input").disabled = false;
 
   showMobileChat();
@@ -721,7 +776,6 @@ async function loadSavedMessages() {
     .order("created_at", { ascending: true });
 
   if (error) {
-    console.error(error);
     $("messages").textContent = "خطا در دریافت پیام‌های ذخیره‌شده.";
     return;
   }
@@ -733,7 +787,7 @@ async function loadSavedMessages() {
       <div class="welcome-chat">
         <div class="welcome-logo">B</div>
         <h2>پیام‌های ذخیره‌شده</h2>
-        <p>هنوز چیزی ذخیره نکرده‌اید. یادداشت خود را در کادر پایین بنویسید.</p>
+        <p>هنوز چیزی ذخیره نکرده‌اید.</p>
       </div>
     `;
     return;
@@ -743,7 +797,6 @@ async function loadSavedMessages() {
     <div class="message sent">
       <div>${escapeHTML(item.content)}</div>
       <small>${escapeHTML(formatDate(item.created_at))}</small>
-
       <button type="button"
         class="delete-saved-btn"
         data-id="${escapeHTML(item.id)}">
@@ -817,12 +870,10 @@ function subscribeToMessages() {
         }
       }
     })
-    .subscribe(status => {
-      console.log("Realtime status:", status);
-    });
+    .subscribe(status => console.log("Realtime:", status));
 }
 
-/* ---------- Main tabs ---------- */
+/* ---------- Main Tabs ---------- */
 
 function setActiveTab(id) {
   ["chats-tab", "contacts-tab", "profile-tab"].forEach(tab => {
@@ -840,23 +891,41 @@ function showProfile() {
   $("list-heading").textContent = "پروفایل من";
   $("search-results").innerHTML = "";
 
+  const handle = currentProfile.handle || "";
+
   $("conversation-list").innerHTML = `
     <div class="welcome-chat">
       <div class="welcome-logo">B</div>
+
       <h3>${escapeHTML(
         currentProfile.display_name || currentProfile.username
       )}</h3>
+
+      <p>نام کاربری حساب:</p>
       <p>@${escapeHTML(currentProfile.username)}</p>
-      <p>شناسه حساب:</p>
-      <small>${escapeHTML(currentUser.id)}</small>
+
+      <div style="margin:16px 0;padding:14px;border-radius:12px;background:var(--hover)">
+        <strong>آیدی اختصاصی شما</strong>
+        <p style="font-size:20px;margin:8px 0">
+          ${handle ? "@" + escapeHTML(handle) : "هنوز آیدی انتخاب نکرده‌اید"}
+        </p>
+      </div>
+
+      <button type="button" id="edit-handle-btn" class="primary">
+        <i class="fa-solid fa-at"></i>
+        ${handle ? "تغییر آیدی" : "انتخاب آیدی"}
+      </button>
+
       <br><br>
-      <button type="button" id="edit-profile-btn" class="primary">
+
+      <button type="button" id="edit-profile-btn">
         <i class="fa-solid fa-pen"></i>
         ویرایش نام نمایشی
       </button>
     </div>
   `;
 
+  $("edit-handle-btn")?.addEventListener("click", editHandle);
   $("edit-profile-btn")?.addEventListener("click", editProfile);
 }
 
@@ -867,7 +936,7 @@ function showContacts() {
 
   $("list-heading").textContent = "مخاطبین";
   $("search-results").textContent =
-    "برای پیدا کردن مخاطب، نام کاربری را جست‌وجو کنید.";
+    "با آیدی اختصاصی کاربران جست‌وجو کنید.";
   $("conversation-list").innerHTML = "";
 }
 
@@ -897,7 +966,6 @@ function openSettings() {
   const currentTheme = localStorage.getItem(THEME_KEY) || "light";
 
   $("list-heading").textContent = "تنظیمات";
-
   $("search-results").innerHTML = "";
 
   $("conversation-list").innerHTML = `
@@ -913,8 +981,7 @@ function openSettings() {
 
       <button type="button" id="theme-toggle-btn">
         <i class="fa-solid fa-moon"></i>
-        تغییر پوسته
-        (${currentTheme === "dark" ? "تیره" : "روشن"})
+        تغییر پوسته (${currentTheme === "dark" ? "تیره" : "روشن"})
       </button>
 
       <br><br>
@@ -950,10 +1017,8 @@ function openSettings() {
 
 function showAbout() {
   notify(
-    "Behy Messenger\n" +
-    "پیام‌رسان بهی\n\n" +
-    "نسخه آزمایشی\n" +
-    "ارتباطی ساده، سریع و امن"
+    "Behy Messenger\nپیام‌رسان بهی\n\n" +
+    "نسخه آزمایشی\nارتباطی ساده، سریع و امن"
   );
 }
 
@@ -962,7 +1027,7 @@ function showAbout() {
 function handleAttachment() {
   notify(
     "ارسال فایل هنوز فعال نشده است.\n" +
-    "برای فعال‌سازی آن باید فضای ذخیره‌سازی فایل در Supabase تنظیم شود."
+    "برای فعال‌سازی باید فضای ذخیره‌سازی Supabase تنظیم شود."
   );
 }
 
@@ -979,7 +1044,6 @@ async function logout() {
   const { error } = await db.auth.signOut();
 
   if (error) {
-    console.error(error);
     notify("خروج ناموفق بود: " + error.message);
     return;
   }
@@ -1001,13 +1065,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   loadTheme();
   showAuth();
 
-  $("login-tab")?.addEventListener("click", () => {
-    setAuthMode("login");
-  });
-
-  $("signup-tab")?.addEventListener("click", () => {
-    setAuthMode("signup");
-  });
+  $("login-tab")?.addEventListener("click", () => setAuthMode("login"));
+  $("signup-tab")?.addEventListener("click", () => setAuthMode("signup"));
 
   $("auth-form")?.addEventListener("submit", handleAuth);
 
@@ -1034,7 +1093,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("profile-tab")?.addEventListener("click", showProfile);
 
   $("settings-btn")?.addEventListener("click", openSettings);
-
   $("about-btn")?.addEventListener("click", showAbout);
 
   $("new-chat-btn")?.addEventListener("click", () => {
@@ -1063,12 +1121,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   try {
     const { data, error } = await db.auth.getSession();
-
     if (error) throw error;
-
-    if (data.session) {
-      await loadUser();
-    }
+    if (data.session) await loadUser();
   } catch (error) {
     console.error("Session error:", error);
     showAuth();
