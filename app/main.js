@@ -1,5 +1,5 @@
 
-/* Behy Messenger - Main Application */
+/* Behy Messenger */
 
 const config = window.SUPABASE_CONFIG;
 
@@ -9,24 +9,20 @@ if (!config || !config.url || !config.anonKey) {
 }
 
 const db = window.supabase.createClient(config.url, config.anonKey);
-const $ = (id) => document.getElementById(id);
+const $ = id => document.getElementById(id);
 
 let currentUser = null;
 let currentProfile = null;
 let activeChat = null;
 let realtimeChannel = null;
 let authMode = "login";
-
-/* ---------- Helpers ---------- */
+let savedMode = false;
 
 function showMessage(message, type = "info") {
   const el = $("auth-message");
-  if (!el) {
-    alert(message);
-    return;
-  }
+  if (!el) return alert(message);
   el.textContent = message;
-  el.style.color = type === "error" ? "#ff7777" : "#65c9ff";
+  el.style.color = type === "error" ? "#d33" : "#2481d7";
 }
 
 function cleanUsername(value) {
@@ -34,62 +30,38 @@ function cleanUsername(value) {
 }
 
 function escapeHTML(value) {
-  return String(value ?? "").replace(/[&<>"']/g, char => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#039;"
-  })[char]);
+  return String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;",
+    '"': "&quot;", "'": "&#039;"
+  })[c]);
 }
 
 function showAuth() {
-  if ($("auth-section")) {
-    $("auth-section").hidden = false;
-    $("auth-section").style.display = "block";
-  }
-  if ($("chat-section")) {
-    $("chat-section").hidden = true;
-    $("chat-section").style.display = "none";
-  }
+  $("auth-section").hidden = false;
+  $("chat-section").hidden = true;
 }
 
 function showChat() {
-  if ($("auth-section")) {
-    $("auth-section").hidden = true;
-    $("auth-section").style.display = "none";
-  }
-  if ($("chat-section")) {
-    $("chat-section").hidden = false;
-    $("chat-section").style.display = "block";
-  }
+  $("auth-section").hidden = true;
+  $("chat-section").hidden = false;
 }
-
-/* ---------- Authentication ---------- */
 
 function setAuthMode(mode) {
   authMode = mode;
-
-  $("login-tab")?.classList.toggle("active", mode === "login");
-  $("signup-tab")?.classList.toggle("active", mode === "signup");
-
-  if ($("auth-submit")) {
-    $("auth-submit").textContent =
-      mode === "signup" ? "ساخت حساب کاربری" : "ورود به حساب";
-  }
-
-  showMessage(
-    mode === "signup"
-      ? "نام کاربری و رمز عبور خود را وارد کنید."
-      : "برای ورود اطلاعات حساب خود را وارد کنید."
-  );
+  $("login-tab")?.classList.toggle("primary", mode === "login");
+  $("signup-tab")?.classList.toggle("primary", mode === "signup");
+  $("auth-submit").textContent =
+    mode === "signup" ? "ساخت حساب کاربری" : "ورود به حساب";
+  showMessage(mode === "signup"
+    ? "نام کاربری و رمز عبور را وارد کنید."
+    : "اطلاعات حساب خود را وارد کنید.");
 }
 
 async function handleAuth(event) {
   event.preventDefault();
 
-  const username = cleanUsername($("username")?.value);
-  const password = $("password")?.value || "";
+  const username = cleanUsername($("username").value);
+  const password = $("password").value;
   const submit = $("auth-submit");
 
   if (!/^[a-z0-9_]{3,24}$/.test(username)) {
@@ -102,7 +74,7 @@ async function handleAuth(event) {
     return;
   }
 
-  if (submit) submit.disabled = true;
+  submit.disabled = true;
 
   try {
     const response = await fetch("/api/auth", {
@@ -127,35 +99,31 @@ async function handleAuth(event) {
     });
 
     if (error) throw error;
-
-    showMessage("ورود موفق بود.");
     await loadUser();
 
   } catch (error) {
     console.error(error);
     showMessage(error.message || "ارتباط با سرور برقرار نشد.", "error");
   } finally {
-    if (submit) submit.disabled = false;
+    submit.disabled = false;
   }
 }
 
-/* ---------- User Profile ---------- */
-
 async function loadUser() {
-  const { data: authData, error: authError } = await db.auth.getUser();
+  const { data, error } = await db.auth.getUser();
 
-  if (authError || !authData.user) {
+  if (error || !data.user) {
     showAuth();
     return;
   }
 
-  currentUser = authData.user;
+  currentUser = data.user;
 
   const username =
     currentUser.user_metadata?.username ||
     currentUser.email?.split("@")[0];
 
-  const { data: profile, error } = await db
+  const { data: profile, error: profileError } = await db
     .from("profiles")
     .upsert({
       id: currentUser.id,
@@ -165,32 +133,25 @@ async function loadUser() {
     .select()
     .single();
 
-  if (error) {
-    console.error(error);
-    showMessage("ساخت پروفایل ناموفق بود: " + error.message, "error");
+  if (profileError) {
+    console.error(profileError);
+    alert("خطا در ساخت پروفایل: " + profileError.message);
     return;
   }
 
   currentProfile = profile;
-
-  if ($("current-user")) {
-    $("current-user").textContent = profile.display_name || profile.username;
-  }
+  $("current-user").textContent = profile.display_name || profile.username;
 
   showChat();
   await loadConversations();
   subscribeToMessages();
 }
 
-/* ---------- Search Users ---------- */
-
 async function searchUsers() {
-  const term = cleanUsername($("search-user")?.value);
+  const term = cleanUsername($("search-user").value);
 
   if (term.length < 2) {
-    if ($("search-results")) {
-      $("search-results").innerHTML = "<p>حداقل دو حرف وارد کنید.</p>";
-    }
+    $("search-results").textContent = "حداقل دو حرف وارد کنید.";
     return;
   }
 
@@ -203,15 +164,14 @@ async function searchUsers() {
 
   if (error) {
     console.error(error);
-    $("search-results").textContent = "خطا در جست‌وجوی کاربران";
+    $("search-results").textContent = "خطا در جست‌وجوی کاربران.";
     return;
   }
 
   const results = $("search-results");
-  if (!results) return;
 
   if (!data.length) {
-    results.innerHTML = "<p>کاربری پیدا نشد.</p>";
+    results.textContent = "کاربری پیدا نشد.";
     return;
   }
 
@@ -224,13 +184,11 @@ async function searchUsers() {
 
   results.querySelectorAll("[data-user-id]").forEach(button => {
     button.addEventListener("click", () => {
-      const user = data.find(item => item.id === button.dataset.userId);
+      const user = data.find(u => u.id === button.dataset.userId);
       if (user) openChat(user);
     });
   });
 }
-
-/* ---------- Conversations ---------- */
 
 async function loadConversations() {
   const { data: messages, error } = await db
@@ -245,31 +203,26 @@ async function loadConversations() {
     return;
   }
 
-  const ids = [...new Set(messages.map(message =>
-    message.sender_id === currentUser.id
-      ? message.receiver_id
-      : message.sender_id
+  const ids = [...new Set(messages.map(m =>
+    m.sender_id === currentUser.id ? m.receiver_id : m.sender_id
   ))];
 
+  const list = $("conversation-list");
+
   if (!ids.length) {
-    if ($("conversation-list")) {
-      $("conversation-list").innerHTML = "<p>هنوز گفت‌وگویی ندارید.</p>";
-    }
+    list.textContent = "هنوز گفت‌وگویی ندارید.";
     return;
   }
 
-  const { data: users, error: profileError } = await db
+  const { data: users, error: userError } = await db
     .from("profiles")
     .select("id, username, display_name")
     .in("id", ids);
 
-  if (profileError) {
-    console.error(profileError);
+  if (userError) {
+    console.error(userError);
     return;
   }
-
-  const list = $("conversation-list");
-  if (!list) return;
 
   list.innerHTML = users.map(user => `
     <button class="conversation-item" data-user-id="${escapeHTML(user.id)}">
@@ -280,27 +233,31 @@ async function loadConversations() {
 
   list.querySelectorAll("[data-user-id]").forEach(button => {
     button.addEventListener("click", () => {
-      const user = users.find(item => item.id === button.dataset.userId);
+      const user = users.find(u => u.id === button.dataset.userId);
       if (user) openChat(user);
     });
   });
 }
 
-/* ---------- Chat ---------- */
-
 async function openChat(user) {
+  savedMode = false;
   activeChat = user;
 
-  if ($("chat-header")) {
-    $("chat-header").textContent = user.display_name || user.username;
-  }
+  $("chat-header").innerHTML = `
+    <div class="empty-avatar"><i class="fa-solid fa-user"></i></div>
+    <div>
+      <strong>${escapeHTML(user.display_name || user.username)}</strong>
+      <p>@${escapeHTML(user.username)}</p>
+    </div>
+  `;
 
+  $("message-input").placeholder = "پیام خود را بنویسید...";
+  $("message-input").disabled = false;
   await loadMessages();
-  $("message-input")?.focus();
 }
 
 async function loadMessages() {
-  if (!activeChat) return;
+  if (!activeChat || savedMode) return;
 
   const otherId = activeChat.id;
 
@@ -319,17 +276,26 @@ async function loadMessages() {
   }
 
   const container = $("messages");
-  if (!container) return;
 
   container.innerHTML = data.map(message => `
     <div class="message ${message.sender_id === currentUser.id ? "sent" : "received"}">
       <div>${escapeHTML(message.content)}</div>
       <small>${new Date(message.created_at).toLocaleTimeString("fa-IR", {
-        hour: "2-digit",
-        minute: "2-digit"
+        hour: "2-digit", minute: "2-digit"
       })}</small>
+      <button type="button" class="save-message-btn"
+        data-content="${encodeURIComponent(message.content)}">
+        <i class="fa-solid fa-bookmark"></i>
+        ذخیره
+      </button>
     </div>
   `).join("");
+
+  container.querySelectorAll(".save-message-btn").forEach(button => {
+    button.addEventListener("click", () => {
+      saveMessage(decodeURIComponent(button.dataset.content));
+    });
+  });
 
   container.scrollTop = container.scrollHeight;
 }
@@ -337,18 +303,34 @@ async function loadMessages() {
 async function sendMessage(event) {
   event.preventDefault();
 
-  if (!activeChat) {
-    alert("ابتدا یک گفت‌وگو انتخاب کنید.");
-    return;
-  }
-
   const input = $("message-input");
-  const content = input?.value.trim();
+  const content = input.value.trim();
 
   if (!content) return;
 
   if (content.length > 5000) {
     alert("پیام بیش از حد طولانی است.");
+    return;
+  }
+
+  if (savedMode) {
+    const { error } = await db.from("saved_messages").insert({
+      user_id: currentUser.id,
+      content
+    });
+
+    if (error) {
+      alert("ذخیره پیام ناموفق بود: " + error.message);
+      return;
+    }
+
+    input.value = "";
+    await loadSavedMessages();
+    return;
+  }
+
+  if (!activeChat) {
+    alert("ابتدا یک گفتگو انتخاب کنید.");
     return;
   }
 
@@ -359,7 +341,6 @@ async function sendMessage(event) {
   });
 
   if (error) {
-    console.error(error);
     alert("ارسال پیام ناموفق بود: " + error.message);
     return;
   }
@@ -369,12 +350,101 @@ async function sendMessage(event) {
   await loadConversations();
 }
 
-/* ---------- Realtime ---------- */
+async function saveMessage(content) {
+  const { error } = await db.from("saved_messages").insert({
+    user_id: currentUser.id,
+    content
+  });
+
+  if (error) {
+    alert("ذخیره پیام ناموفق بود: " + error.message);
+    return;
+  }
+
+  alert("پیام در پیام‌های ذخیره‌شده ثبت شد.");
+}
+
+async function openSavedMessages() {
+  savedMode = true;
+  activeChat = null;
+
+  $("chat-header").innerHTML = `
+    <div class="empty-avatar"><i class="fa-solid fa-bookmark"></i></div>
+    <div>
+      <strong>پیام‌های ذخیره‌شده</strong>
+      <p>فضای خصوصی شما</p>
+    </div>
+  `;
+
+  $("message-input").placeholder = "یادداشت خصوصی خود را بنویسید...";
+  $("message-input").disabled = false;
+
+  await loadSavedMessages();
+}
+
+async function loadSavedMessages() {
+  const { data, error } = await db
+    .from("saved_messages")
+    .select("*")
+    .eq("user_id", currentUser.id)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error(error);
+    $("messages").textContent = "خطا در دریافت پیام‌های ذخیره‌شده.";
+    return;
+  }
+
+  const container = $("messages");
+
+  if (!data.length) {
+    container.innerHTML = `
+      <div class="welcome-chat">
+        <div class="welcome-logo">B</div>
+        <h2>پیام‌های ذخیره‌شده</h2>
+        <p>هنوز چیزی ذخیره نکرده‌اید. یادداشت خود را در کادر پایین بنویسید.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = data.map(item => `
+    <div class="message sent">
+      <div>${escapeHTML(item.content)}</div>
+      <small>${new Date(item.created_at).toLocaleString("fa-IR")}</small>
+      <button type="button" class="delete-saved-btn" data-id="${escapeHTML(item.id)}">
+        <i class="fa-solid fa-trash"></i>
+        حذف
+      </button>
+    </div>
+  `).join("");
+
+  container.querySelectorAll(".delete-saved-btn").forEach(button => {
+    button.addEventListener("click", () => deleteSavedMessage(button.dataset.id));
+  });
+
+  container.scrollTop = container.scrollHeight;
+}
+
+async function deleteSavedMessage(id) {
+  if (!confirm("این پیام حذف شود؟")) return;
+
+  const { error } = await db
+    .from("saved_messages")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", currentUser.id);
+
+  if (error) {
+    alert("حذف پیام ناموفق بود: " + error.message);
+    return;
+  }
+
+  await loadSavedMessages();
+}
 
 function subscribeToMessages() {
-  if (realtimeChannel) {
-    db.removeChannel(realtimeChannel);
-  }
+  if (realtimeChannel) db.removeChannel(realtimeChannel);
 
   realtimeChannel = db
     .channel("behy-messages-" + currentUser.id)
@@ -392,7 +462,7 @@ function subscribeToMessages() {
         await loadConversations();
 
         if (
-          activeChat &&
+          !savedMode && activeChat &&
           (message.sender_id === activeChat.id ||
            message.receiver_id === activeChat.id)
         ) {
@@ -403,8 +473,6 @@ function subscribeToMessages() {
     .subscribe();
 }
 
-/* ---------- Logout ---------- */
-
 async function logout() {
   if (realtimeChannel) {
     await db.removeChannel(realtimeChannel);
@@ -412,15 +480,45 @@ async function logout() {
   }
 
   await db.auth.signOut();
-
   currentUser = null;
   currentProfile = null;
   activeChat = null;
-
+  savedMode = false;
   showAuth();
 }
 
-/* ---------- Start ---------- */
+function setActiveTab(id) {
+  ["chats-tab", "contacts-tab", "profile-tab"].forEach(tab => {
+    $(tab)?.classList.toggle("active", tab === id);
+  });
+}
+
+function showProfile() {
+  setActiveTab("profile-tab");
+  $("list-heading").textContent = "پروفایل من";
+  $("search-results").innerHTML = "";
+  $("conversation-list").innerHTML = `
+    <div class="welcome-chat">
+      <h3>${escapeHTML(currentProfile.display_name || currentProfile.username)}</h3>
+      <p>@${escapeHTML(currentProfile.username)}</p>
+      <p>شناسه حساب: ${escapeHTML(currentUser.id)}</p>
+    </div>
+  `;
+}
+
+function showContacts() {
+  setActiveTab("contacts-tab");
+  $("list-heading").textContent = "مخاطبین";
+  $("search-user").focus();
+  $("search-results").textContent = "برای پیدا کردن مخاطب، نام کاربری را جستجو کنید.";
+}
+
+function showChats() {
+  setActiveTab("chats-tab");
+  $("list-heading").textContent = "گفتگوهای من";
+  $("search-results").innerHTML = "";
+  loadConversations();
+}
 
 document.addEventListener("DOMContentLoaded", async () => {
   showAuth();
@@ -440,11 +538,36 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("message-form")?.addEventListener("submit", sendMessage);
   $("logout-btn")?.addEventListener("click", logout);
 
+  $("saved-messages-btn")?.addEventListener("click", openSavedMessages);
+  $("chats-tab")?.addEventListener("click", showChats);
+  $("contacts-tab")?.addEventListener("click", showContacts);
+  $("profile-tab")?.addEventListener("click", showProfile);
+
+  $("settings-btn")?.addEventListener("click", () => {
+    alert("بخش تنظیمات بهی در حال آماده‌سازی است.");
+  });
+
+  $("about-btn")?.addEventListener("click", () => {
+    alert("Behy Messenger\nپیام‌رسان بهی");
+  });
+
+  $("new-chat-btn")?.addEventListener("click", () => {
+    $("search-user").focus();
+    $("search-user").scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+
+  $("chat-info-btn")?.addEventListener("click", () => {
+    alert(activeChat
+      ? "گفتگو با " + (activeChat.display_name || activeChat.username)
+      : "هنوز گفتگویی انتخاب نشده است.");
+  });
+
+  $("attach-btn")?.addEventListener("click", () => {
+    alert("ارسال فایل هنوز فعال نشده است.");
+  });
+
   setAuthMode("login");
 
   const { data } = await db.auth.getSession();
-
-  if (data.session) {
-    await loadUser();
-  }
+  if (data.session) await loadUser();
 });
