@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101827">
+  <title>Behy Messenger</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="brand">
+        <div class="logo">B</div>
+        <div>
+          <h1>Behy Messenger</h1>
+          <p>پیام‌رسان شما</p>
+        </div>
+      </div>
+    </header>
+
+    <main id="main">
+      <section id="auth-section" class="auth-section">
+        <div class="welcome">
+          <h2>خوش آمدید 👋</h2>
+          <p>برای شروع وارد حساب خود شوید یا ثبت‌نام کنید.</p>
+        </div>
+
+        <div class="auth-card">
+          <div class="auth-tabs">
+            <button id="login-tab" class="active">ورود</button>
+            <button id="signup-tab">ثبت‌نام</button>
+          </div>
+
+          <form id="auth-form">
+            <label for="username">نام کاربری</label>
+            <input id="username" type="text" placeholder="نام کاربری" autocomplete="username" required>
+
+            <label for="password">رمز عبور</label>
+            <input id="password" type="password" placeholder="رمز عبور" autocomplete="current-password" required>
+
+            <button id="auth-submit" class="primary" type="submit">ورود</button>
+            <p id="auth-message" class="message"></p>
+          </form>
+        </div>
+      </section>
+
+      <section id="chat-section" hidden>
+        <div class="chat-layout">
+          <aside class="sidebar">
+            <div class="user-bar">
+              <span id="current-user"></span>
+              <button id="logout-btn">خروج</button>
+            </div>
+
+            <h3>جستجوی کاربران</h3>
+            <div class="search-box">
+              <input id="search-user" type="text" placeholder="نام کاربری...">
+              <button id="search-btn">جستجو</button>
+            </div>
+            <div id="search-results"></div>
+
+            <h3>گفتگوها</h3>
+            <div id="conversation-list"></div>
+          </aside>
+
+          <section class="conversation">
+            <div id="chat-header" class="chat-header">
+              <p>یک گفتگو انتخاب کنید</p>
+            </div>
+
+            <div id="messages" class="messages"></div>
+
+            <form id="message-form" class="message-form">
+              <input id="message-input" type="text" placeholder="پیامت را بنویس..." autocomplete="off">
+              <button type="submit">ارسال</button>
+            </form>
+          </section>
+        </div>
+      </section>
+    </main>
+    <footer>Behy Messenger · نسخه آزمایشی</footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
