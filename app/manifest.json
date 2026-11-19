@@ -1,0 +1,13 @@
+{
+  "name": "Behy Messenger",
+  "short_name": "Behy",
+  "description": "پیام‌رسان مدرن بهی",
+  "lang": "fa",
+  "dir": "rtl",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070b14",
+  "theme_color": "#070b14"
+}
