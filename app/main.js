@@ -31,9 +31,32 @@ function cleanUsername(value) {
 
 function escapeHTML(value) {
   return String(value ?? "").replace(/[&<>"']/g, c => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;",
-    '"': "&quot;", "'": "&#039;"
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;"
   })[c]);
+}
+
+function isMobile() {
+  return window.matchMedia("(max-width: 760px)").matches;
+}
+
+function setMobileTab(tab) {
+  document.querySelectorAll("[data-mobile-tab]").forEach(button => {
+    button.classList.toggle("active", button.dataset.mobileTab === tab);
+  });
+}
+
+function showMobileList() {
+  $("chat-layout")?.classList.remove("mobile-chat-open");
+}
+
+function showMobileChat() {
+  if (isMobile()) {
+    $("chat-layout")?.classList.add("mobile-chat-open");
+  }
 }
 
 function showAuth() {
@@ -48,13 +71,18 @@ function showChat() {
 
 function setAuthMode(mode) {
   authMode = mode;
+
   $("login-tab")?.classList.toggle("primary", mode === "login");
   $("signup-tab")?.classList.toggle("primary", mode === "signup");
+
   $("auth-submit").textContent =
     mode === "signup" ? "ساخت حساب کاربری" : "ورود به حساب";
-  showMessage(mode === "signup"
-    ? "نام کاربری و رمز عبور را وارد کنید."
-    : "اطلاعات حساب خود را وارد کنید.");
+
+  showMessage(
+    mode === "signup"
+      ? "نام کاربری و رمز عبور را وارد کنید."
+      : "اطلاعات حساب خود را وارد کنید."
+  );
 }
 
 async function handleAuth(event) {
@@ -99,6 +127,7 @@ async function handleAuth(event) {
     });
 
     if (error) throw error;
+
     await loadUser();
 
   } catch (error) {
@@ -143,6 +172,9 @@ async function loadUser() {
   $("current-user").textContent = profile.display_name || profile.username;
 
   showChat();
+  showMobileList();
+  setMobileTab("chats");
+
   await loadConversations();
   subscribeToMessages();
 }
@@ -239,20 +271,54 @@ async function loadConversations() {
   });
 }
 
+function renderChatHeader(title, subtitle, icon) {
+  $("chat-header").innerHTML = `
+    <button id="mobile-back-btn" class="mobile-back-btn"
+      type="button" aria-label="بازگشت">
+      <i class="fa-solid fa-arrow-right"></i>
+    </button>
+
+    <div class="empty-avatar">
+      <i class="${icon}"></i>
+    </div>
+
+    <div>
+      <strong>${escapeHTML(title)}</strong>
+      <p>${escapeHTML(subtitle)}</p>
+    </div>
+
+    <div class="chat-actions">
+      <button id="chat-info-btn" type="button" aria-label="اطلاعات">
+        <i class="fa-solid fa-ellipsis-vertical"></i>
+      </button>
+    </div>
+  `;
+
+  $("mobile-back-btn")?.addEventListener("click", showMobileList);
+
+  $("chat-info-btn")?.addEventListener("click", () => {
+    alert(activeChat
+      ? "گفتگو با " + (activeChat.display_name || activeChat.username)
+      : "پیام‌های ذخیره‌شده");
+  });
+}
+
 async function openChat(user) {
   savedMode = false;
   activeChat = user;
 
-  $("chat-header").innerHTML = `
-    <div class="empty-avatar"><i class="fa-solid fa-user"></i></div>
-    <div>
-      <strong>${escapeHTML(user.display_name || user.username)}</strong>
-      <p>@${escapeHTML(user.username)}</p>
-    </div>
-  `;
+  setMobileTab("chats");
+
+  renderChatHeader(
+    user.display_name || user.username,
+    "@" + user.username,
+    "fa-solid fa-user"
+  );
 
   $("message-input").placeholder = "پیام خود را بنویسید...";
   $("message-input").disabled = false;
+
+  showMobileChat();
   await loadMessages();
 }
 
@@ -281,7 +347,8 @@ async function loadMessages() {
     <div class="message ${message.sender_id === currentUser.id ? "sent" : "received"}">
       <div>${escapeHTML(message.content)}</div>
       <small>${new Date(message.created_at).toLocaleTimeString("fa-IR", {
-        hour: "2-digit", minute: "2-digit"
+        hour: "2-digit",
+        minute: "2-digit"
       })}</small>
       <button type="button" class="save-message-btn"
         data-content="${encodeURIComponent(message.content)}">
@@ -368,17 +435,18 @@ async function openSavedMessages() {
   savedMode = true;
   activeChat = null;
 
-  $("chat-header").innerHTML = `
-    <div class="empty-avatar"><i class="fa-solid fa-bookmark"></i></div>
-    <div>
-      <strong>پیام‌های ذخیره‌شده</strong>
-      <p>فضای خصوصی شما</p>
-    </div>
-  `;
+  setMobileTab("saved");
+
+  renderChatHeader(
+    "پیام‌های ذخیره‌شده",
+    "فضای خصوصی شما",
+    "fa-solid fa-bookmark"
+  );
 
   $("message-input").placeholder = "یادداشت خصوصی خود را بنویسید...";
   $("message-input").disabled = false;
 
+  showMobileChat();
   await loadSavedMessages();
 }
 
@@ -480,10 +548,12 @@ async function logout() {
   }
 
   await db.auth.signOut();
+
   currentUser = null;
   currentProfile = null;
   activeChat = null;
   savedMode = false;
+
   showAuth();
 }
 
@@ -494,9 +564,13 @@ function setActiveTab(id) {
 }
 
 function showProfile() {
+  showMobileList();
   setActiveTab("profile-tab");
+  setMobileTab("profile");
+
   $("list-heading").textContent = "پروفایل من";
   $("search-results").innerHTML = "";
+
   $("conversation-list").innerHTML = `
     <div class="welcome-chat">
       <h3>${escapeHTML(currentProfile.display_name || currentProfile.username)}</h3>
@@ -507,17 +581,32 @@ function showProfile() {
 }
 
 function showContacts() {
+  showMobileList();
   setActiveTab("contacts-tab");
+  setMobileTab("contacts");
+
   $("list-heading").textContent = "مخاطبین";
-  $("search-user").focus();
-  $("search-results").textContent = "برای پیدا کردن مخاطب، نام کاربری را جستجو کنید.";
+  $("search-results").textContent =
+    "برای پیدا کردن مخاطب، نام کاربری را جستجو کنید.";
+  $("conversation-list").innerHTML = "";
 }
 
 function showChats() {
+  showMobileList();
   setActiveTab("chats-tab");
+  setMobileTab("chats");
+
   $("list-heading").textContent = "گفتگوهای من";
   $("search-results").innerHTML = "";
+
   loadConversations();
+}
+
+function openSettings() {
+  showMobileList();
+  setMobileTab("settings");
+
+  alert("بخش تنظیمات بهی هنوز در حال آماده‌سازی است.");
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -526,6 +615,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("login-tab")?.addEventListener("click", () => setAuthMode("login"));
   $("signup-tab")?.addEventListener("click", () => setAuthMode("signup"));
   $("auth-form")?.addEventListener("submit", handleAuth);
+
   $("search-btn")?.addEventListener("click", searchUsers);
 
   $("search-user")?.addEventListener("keydown", event => {
@@ -543,9 +633,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("contacts-tab")?.addEventListener("click", showContacts);
   $("profile-tab")?.addEventListener("click", showProfile);
 
-  $("settings-btn")?.addEventListener("click", () => {
-    alert("بخش تنظیمات بهی در حال آماده‌سازی است.");
-  });
+  $("settings-btn")?.addEventListener("click", openSettings);
 
   $("about-btn")?.addEventListener("click", () => {
     alert("Behy Messenger\nپیام‌رسان بهی");
@@ -553,7 +641,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   $("new-chat-btn")?.addEventListener("click", () => {
     $("search-user").focus();
-    $("search-user").scrollIntoView({ behavior: "smooth", block: "center" });
+    $("search-user").scrollIntoView({
+      behavior: "smooth",
+      block: "center"
+    });
   });
 
   $("chat-info-btn")?.addEventListener("click", () => {
@@ -566,8 +657,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     alert("ارسال فایل هنوز فعال نشده است.");
   });
 
+  document.querySelectorAll("[data-mobile-tab]").forEach(button => {
+    button.addEventListener("click", () => {
+      const tab = button.dataset.mobileTab;
+
+      if (tab === "chats") showChats();
+      if (tab === "contacts") showContacts();
+      if (tab === "saved") openSavedMessages();
+      if (tab === "profile") showProfile();
+      if (tab === "settings") openSettings();
+    });
+  });
+
   setAuthMode("login");
 
   const { data } = await db.auth.getSession();
-  if (data.session) await loadUser();
+
+  if (data.session) {
+    await loadUser();
+  }
 });
