@@ -4,157 +4,215 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#08111f">
-  <meta name="description" content="پیام‌رسان بهی؛ ارتباط سریع و ساده">
-  <title>Behy Messenger | پیام‌رسان بهی</title>
-
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="پیام‌رسان بهی">
+  <title>Behy Messenger</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
-
 <body>
-  <div class="app">
+<div class="app">
 
-    <header class="header">
-      <div class="brand">
-        <div class="logo">B</div>
-        <div>
-          <h1>Behy Messenger</h1>
-          <p>ارتباطی ساده، سریع و امن</p>
-        </div>
+  <header class="header">
+    <button class="menu-button" type="button" aria-label="منو">
+      <i class="fa-solid fa-bars"></i>
+    </button>
+    <div class="brand">
+      <div class="logo">B</div>
+      <div>
+        <h1>Behy Messenger</h1>
+        <p>پیام‌رسان بهی</p>
       </div>
-    </header>
+    </div>
+    <button class="header-icon" type="button" aria-label="جستجو">
+      <i class="fa-solid fa-magnifying-glass"></i>
+    </button>
+  </header>
 
-    <main id="main">
+  <main id="main">
 
-      <!-- بخش ورود و ثبت نام -->
-      <section id="auth-section" class="auth-section">
-        <div class="auth-card">
+    <section id="auth-section" class="auth-section">
+      <div class="auth-card">
+        <div class="auth-logo">B</div>
+        <h2>خوش آمدی 👋</h2>
+        <p>برای ورود به پیام‌رسان بهی اطلاعاتت را وارد کن.</p>
 
-          <h2>خوش آمدی 👋</h2>
-          <p>برای ورود به پیام‌رسان بهی اطلاعاتت را وارد کن.</p>
+        <div class="auth-tabs">
+          <button id="login-tab" type="button" class="primary">ورود</button>
+          <button id="signup-tab" type="button">ثبت نام</button>
+        </div>
 
-          <div class="auth-tabs">
-            <button id="login-tab" type="button" class="primary">
-              ورود
-            </button>
-
-            <button id="signup-tab" type="button">
-              ثبت نام
-            </button>
+        <form id="auth-form">
+          <label for="username">نام کاربری</label>
+          <div class="input-wrap">
+            <i class="fa-regular fa-user"></i>
+            <input id="username" name="username" type="text"
+              placeholder="نام کاربری خود را وارد کنید"
+              autocomplete="username" required>
           </div>
 
-          <form id="auth-form">
-            <label for="username">نام کاربری</label>
-            <input
-              id="username"
-              name="username"
-              type="text"
-              placeholder="نام کاربری خود را وارد کنید"
-              autocomplete="username"
-              required
-            >
+          <label for="password">رمز عبور</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-lock"></i>
+            <input id="password" name="password" type="password"
+              placeholder="رمز عبور" autocomplete="current-password" required>
+          </div>
 
-            <label for="password">رمز عبور</label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              placeholder="رمز عبور"
-              autocomplete="current-password"
-              required
-            >
+          <button id="auth-submit" class="primary auth-submit" type="submit">
+            ورود به حساب
+            <i class="fa-solid fa-arrow-left"></i>
+          </button>
+          <p id="auth-message" class="message" role="status"></p>
+        </form>
+      </div>
+    </section>
 
-            <button id="auth-submit" class="primary" type="submit">
-              ورود به حساب
-            </button>
+    <section id="chat-section" hidden>
 
-            <p id="auth-message" class="message" role="status"></p>
-          </form>
-
-        </div>
-      </section>
-
-      <!-- بخش اصلی پیام‌رسان -->
-      <section id="chat-section" hidden>
-
-        <div class="user-bar">
+      <div class="user-bar">
+        <div class="user-info">
+          <div class="avatar">B</div>
           <div>
-            <span>حساب کاربری:</span>
+            <span>حساب کاربری</span>
             <strong id="current-user"></strong>
           </div>
-
-          <button id="logout-btn" type="button">
-            خروج
-          </button>
         </div>
+        <button id="logout-btn" type="button" class="logout-button">
+          <i class="fa-solid fa-right-from-bracket"></i>
+          خروج
+        </button>
+      </div>
 
-        <div class="chat-layout">
+      <div class="chat-layout">
 
-          <!-- فهرست کاربران و گفتگوها -->
-          <aside class="sidebar">
+        <aside class="sidebar">
 
-            <div class="search-box">
-              <input
-                id="search-user"
-                type="text"
-                placeholder="جستجوی نام کاربری..."
-              >
+          <div class="sidebar-title">
+            <h2>پیام‌ها</h2>
+            <button type="button" class="round-button" aria-label="پیام جدید">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+          </div>
 
-              <button id="search-btn" type="button">
-                جستجو
-              </button>
-            </div>
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input id="search-user" type="text"
+              placeholder="جستجوی نام کاربری...">
+            <button id="search-btn" type="button">جستجو</button>
+          </div>
 
-            <div id="search-results"></div>
+          <div class="menu-tabs">
+            <button type="button" class="active">
+              <i class="fa-solid fa-comments"></i>
+              چت‌ها
+            </button>
+            <button type="button">
+              <i class="fa-solid fa-address-book"></i>
+              مخاطبین
+            </button>
+            <button type="button">
+              <i class="fa-solid fa-user"></i>
+              پروفایل
+            </button>
+          </div>
 
+          <div id="search-results"></div>
+
+          <div class="section-heading">
             <h3>گفتگوهای من</h3>
-            <div id="conversation-list"></div>
+            <span>همه پیام‌ها</span>
+          </div>
 
-          </aside>
+          <div id="conversation-list"></div>
 
-          <!-- صفحه گفتگو -->
-          <section class="chat-window">
+          <div class="sidebar-footer">
+            <button type="button">
+              <i class="fa-solid fa-gear"></i>
+              تنظیمات
+            </button>
+            <button type="button">
+              <i class="fa-solid fa-circle-info"></i>
+              درباره بهی
+            </button>
+          </div>
 
-            <div id="chat-header" class="chat-header">
-              یک گفتگو را انتخاب کنید
+        </aside>
+
+        <section class="chat-window">
+
+          <div id="chat-header" class="chat-header">
+            <div class="empty-avatar">
+              <i class="fa-solid fa-comments"></i>
             </div>
-
-            <div id="messages" class="messages">
-              <p>برای شروع، یک کاربر را جستجو کنید.</p>
+            <div>
+              <strong>بهی مسنجر</strong>
+              <p>یک گفتگو را انتخاب کنید</p>
             </div>
-
-            <form id="message-form" class="message-form">
-              <input
-                id="message-input"
-                type="text"
-                placeholder="پیام خود را بنویسید..."
-                autocomplete="off"
-                required
-              >
-
-              <button type="submit" class="primary">
-                ارسال
+            <div class="chat-actions">
+              <button type="button" aria-label="تماس">
+                <i class="fa-solid fa-phone"></i>
               </button>
-            </form>
+              <button type="button" aria-label="اطلاعات">
+                <i class="fa-solid fa-ellipsis-vertical"></i>
+              </button>
+            </div>
+          </div>
 
-          </section>
-        </div>
+          <div id="messages" class="messages">
+            <div class="welcome-chat">
+              <div class="welcome-logo">B</div>
+              <h2>به بهی خوش آمدی</h2>
+              <p>برای شروع یک گفتگو، کاربر موردنظرت را جستجو کن.</p>
+            </div>
+          </div>
 
-      </section>
+          <form id="message-form" class="message-form">
+            <button type="button" class="attach-button" aria-label="پیوست">
+              <i class="fa-solid fa-paperclip"></i>
+            </button>
+            <input id="message-input" type="text"
+              placeholder="پیام خود را بنویسید..."
+              autocomplete="off" required>
+            <button type="submit" class="send-button" aria-label="ارسال">
+              <i class="fa-solid fa-paper-plane"></i>
+            </button>
+          </form>
 
-    </main>
+        </section>
+      </div>
 
-    <footer>
-      <p>Behy Messenger © 2026</p>
-      <p>ساخته شده برای ارتباط آسان‌تر</p>
-    </footer>
+      <nav class="mobile-nav">
+        <button type="button" class="active">
+          <i class="fa-solid fa-comments"></i>
+          <span>چت‌ها</span>
+        </button>
+        <button type="button">
+          <i class="fa-solid fa-address-book"></i>
+          <span>مخاطبین</span>
+        </button>
+        <button type="button">
+          <i class="fa-solid fa-user"></i>
+          <span>پروفایل</span>
+        </button>
+        <button type="button">
+          <i class="fa-solid fa-gear"></i>
+          <span>تنظیمات</span>
+        </button>
+      </nav>
 
-  </div>
+    </section>
+  </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js"></script>
-  <script src="main.js"></script>
+  <footer>
+    <p>Behy Messenger © 2026</p>
+    <p>ارتباطی ساده، سریع و امن</p>
+  </footer>
 
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="main.js"></script>
 </body>
 </html>
