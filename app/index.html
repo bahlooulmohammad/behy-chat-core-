@@ -12,9 +12,27 @@
   <script src="./config.js"></script>
 
   <style>
-    [hidden] { display: none !important; }
+    [hidden] {
+      display: none !important;
+    }
+
+    /* فقط یک منوی اصلی */
+    .sidebar-tabs {
+      display: none !important;
+    }
+
+    .mobile-nav {
+      display: none !important;
+    }
+
+    @media (max-width: 700px) {
+      .mobile-nav {
+        display: flex !important;
+      }
+    }
   </style>
 </head>
+
 <body>
 
   <!-- ورود و ثبت نام -->
@@ -60,7 +78,6 @@
   <!-- برنامه -->
   <section id="chat-section" hidden>
 
-    <!-- اصلاح خطای current-user -->
     <span id="current-user" hidden></span>
 
     <div id="chat-layout" class="chat-layout">
@@ -81,7 +98,7 @@
           </button>
         </header>
 
-        <!-- جستجوی آیدی -->
+        <!-- جستجوی کاربران -->
         <div class="search-box" style="display:none">
           <input
             id="search-user"
@@ -96,7 +113,7 @@
 
         <div id="search-results"></div>
 
-        <!-- پیام های ذخیره شده -->
+        <!-- پیام‌های ذخیره‌شده -->
         <button
           id="saved-messages-btn"
           class="saved-messages-btn"
@@ -105,32 +122,14 @@
           <div class="saved-icon">
             <i class="fa-solid fa-bookmark"></i>
           </div>
+
           <div>
             <strong>پیام‌های ذخیره‌شده</strong>
             <small>فضای خصوصی من</small>
           </div>
         </button>
 
-        <!-- لیست -->
         <div id="conversation-list"></div>
-
-        <!-- منوی اصلی -->
-        <nav class="sidebar-tabs">
-          <button id="chats-tab" class="active" type="button">
-            <i class="fa-solid fa-comments"></i>
-            <span>چت‌ها</span>
-          </button>
-
-          <button id="contacts-tab" type="button">
-            <i class="fa-solid fa-users"></i>
-            <span>مخاطبین</span>
-          </button>
-
-          <button id="profile-tab" type="button">
-            <i class="fa-solid fa-user"></i>
-            <span>پروفایل</span>
-          </button>
-        </nav>
 
       </aside>
 
@@ -144,7 +143,7 @@
           </div>
         </header>
 
-        <!-- پیام ها -->
+        <!-- پیام‌ها -->
         <div id="messages">
           <div class="welcome-chat">
             <div class="welcome-logo">B</div>
@@ -182,7 +181,7 @@
 
     </div>
 
-    <!-- منوی موبایل -->
+    <!-- تنها منوی اصلی موبایل -->
     <nav class="mobile-nav">
 
       <button data-mobile-tab="chats" class="active" type="button">
