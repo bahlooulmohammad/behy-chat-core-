@@ -1,297 +1,210 @@
+
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#ffffff">
-  <title>Behy Messenger</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>بهی مسنجر</title>
 
   <link rel="stylesheet" href="./style.css">
-  <link rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-</head>
+  <script src="./config.js"></script>
 
+  <style>
+    [hidden] { display: none !important; }
+  </style>
+</head>
 <body>
 
-<div class="app">
+  <!-- ورود و ثبت نام -->
+  <section id="auth-section">
+    <div class="auth-card">
+      <div class="welcome-logo">B</div>
+      <h1>بهی مسنجر</h1>
+      <p>پیام‌رسان ساده، سریع و امن</p>
 
-  <!-- HEADER -->
-  <header class="header">
-    <div class="brand">
-      <div class="logo">B</div>
-      <div>
-        <h1>بهی مسنجر</h1>
-        <p>پیام‌رسان بهی</p>
+      <div class="auth-tabs">
+        <button id="login-tab" type="button">ورود</button>
+        <button id="signup-tab" type="button">ساخت حساب</button>
       </div>
+
+      <form id="auth-form">
+        <label for="username">نام کاربری</label>
+        <input
+          id="username"
+          type="text"
+          placeholder="نام کاربری"
+          autocomplete="username"
+          required
+        >
+
+        <label for="password">رمز عبور</label>
+        <input
+          id="password"
+          type="password"
+          placeholder="رمز عبور"
+          autocomplete="current-password"
+          required
+        >
+
+        <button id="auth-submit" class="primary" type="submit">
+          ورود به حساب
+        </button>
+
+        <div id="auth-message"></div>
+      </form>
     </div>
+  </section>
 
-    <button
-      id="new-chat-btn"
-      class="header-icon"
-      type="button"
-      aria-label="جستجوی کاربران"
-      title="جستجو">
-      <i class="fa-solid fa-magnifying-glass"></i>
-    </button>
-  </header>
+  <!-- برنامه -->
+  <section id="chat-section" hidden>
 
-  <!-- AUTH -->
-  <main id="main">
+    <!-- اصلاح خطای current-user -->
+    <span id="current-user" hidden></span>
 
-    <section id="auth-section" class="auth-section">
+    <div id="chat-layout" class="chat-layout">
 
-      <div class="auth-card">
+      <!-- فهرست گفتگوها -->
+      <aside class="sidebar">
 
-        <div class="auth-logo">B</div>
+        <header class="sidebar-header">
+          <h2 id="list-heading">گفتگوها</h2>
 
-        <h2>به بهی خوش آمدید</h2>
-        <p>با دوستان خود گفتگو کنید</p>
-
-        <div class="auth-tabs">
-          <button id="login-tab" class="primary" type="button">
-            ورود
+          <button
+            id="new-chat-btn"
+            class="round-button"
+            type="button"
+            title="جستجوی کاربران"
+          >
+            <i class="fa-solid fa-magnifying-glass"></i>
           </button>
+        </header>
 
-          <button id="signup-tab" type="button">
-            ثبت‌نام
+        <!-- جستجوی آیدی -->
+        <div class="search-box" style="display:none">
+          <input
+            id="search-user"
+            type="search"
+            placeholder="جستجوی آیدی..."
+          >
+
+          <button id="search-btn" type="button">
+            <i class="fa-solid fa-magnifying-glass"></i>
           </button>
         </div>
 
-        <form id="auth-form">
+        <div id="search-results"></div>
 
-          <label for="username">نام کاربری</label>
-
-          <div class="input-wrap">
-            <i class="fa-solid fa-user"></i>
-            <input
-              id="username"
-              type="text"
-              placeholder="نام کاربری"
-              autocomplete="username"
-              required
-              minlength="3"
-              maxlength="24">
+        <!-- پیام های ذخیره شده -->
+        <button
+          id="saved-messages-btn"
+          class="saved-messages-btn"
+          type="button"
+        >
+          <div class="saved-icon">
+            <i class="fa-solid fa-bookmark"></i>
           </div>
-
-          <label for="password">رمز عبور</label>
-
-          <div class="input-wrap">
-            <i class="fa-solid fa-lock"></i>
-            <input
-              id="password"
-              type="password"
-              placeholder="رمز عبور"
-              autocomplete="current-password"
-              required
-              minlength="8">
+          <div>
+            <strong>پیام‌های ذخیره‌شده</strong>
+            <small>فضای خصوصی من</small>
           </div>
+        </button>
 
-          <button id="auth-submit" class="primary" type="submit">
-            ورود به حساب
+        <!-- لیست -->
+        <div id="conversation-list"></div>
+
+        <!-- منوی اصلی -->
+        <nav class="sidebar-tabs">
+          <button id="chats-tab" class="active" type="button">
+            <i class="fa-solid fa-comments"></i>
+            <span>چت‌ها</span>
           </button>
 
-          <p id="auth-message"></p>
+          <button id="contacts-tab" type="button">
+            <i class="fa-solid fa-users"></i>
+            <span>مخاطبین</span>
+          </button>
+
+          <button id="profile-tab" type="button">
+            <i class="fa-solid fa-user"></i>
+            <span>پروفایل</span>
+          </button>
+        </nav>
+
+      </aside>
+
+      <!-- پنجره چت -->
+      <main class="chat-panel">
+
+        <header id="chat-header">
+          <div class="empty-chat-header">
+            <i class="fa-solid fa-comments"></i>
+            <span>بهی مسنجر</span>
+          </div>
+        </header>
+
+        <!-- پیام ها -->
+        <div id="messages">
+          <div class="welcome-chat">
+            <div class="welcome-logo">B</div>
+            <h2>به بهی مسنجر خوش آمدید</h2>
+            <p>یک گفتگو را انتخاب کنید یا آیدی دوستتان را جستجو کنید.</p>
+          </div>
+        </div>
+
+        <!-- ارسال پیام -->
+        <form id="message-form">
+
+          <button
+            id="attach-btn"
+            type="button"
+            title="پیوست"
+          >
+            <i class="fa-solid fa-paperclip"></i>
+          </button>
+
+          <input
+            id="message-input"
+            type="text"
+            placeholder="پیام خود را بنویسید..."
+            autocomplete="off"
+            disabled
+          >
+
+          <button type="submit" title="ارسال">
+            <i class="fa-solid fa-paper-plane"></i>
+          </button>
 
         </form>
-      </div>
 
-    </section>
+      </main>
 
-    <!-- APP -->
-    <section id="chat-section" hidden>
+    </div>
 
-      <!-- CHAT LAYOUT -->
-      <div id="chat-layout" class="chat-layout">
+    <!-- منوی موبایل -->
+    <nav class="mobile-nav">
 
-        <!-- SIDEBAR -->
-        <aside class="sidebar">
+      <button data-mobile-tab="chats" class="active" type="button">
+        <i class="fa-solid fa-comments"></i>
+        <span>چت‌ها</span>
+      </button>
 
-          <!-- Sidebar title -->
-          <div class="sidebar-title">
-            <h2 id="list-heading">گفتگوها</h2>
+      <button data-mobile-tab="contacts" type="button">
+        <i class="fa-solid fa-users"></i>
+        <span>مخاطبین</span>
+      </button>
 
-            <button
-              id="saved-messages-btn"
-              class="round-button"
-              type="button"
-              title="پیام‌های ذخیره‌شده">
-              <i class="fa-solid fa-bookmark"></i>
-            </button>
-          </div>
+      <button data-mobile-tab="profile" type="button">
+        <i class="fa-solid fa-user"></i>
+        <span>پروفایل</span>
+      </button>
 
-          <!-- Search -->
-          <div class="search-box">
+    </nav>
 
-            <i class="fa-solid fa-magnifying-glass"></i>
+  </section>
 
-            <input
-              id="search-user"
-              type="search"
-              placeholder="جستجو با آیدی..."
-              autocomplete="off">
-
-            <button
-              id="search-btn"
-              type="button"
-              aria-label="جستجو">
-              <i class="fa-solid fa-arrow-left"></i>
-            </button>
-
-          </div>
-
-          <!-- Search results -->
-          <div id="search-results"></div>
-
-          <!-- Main tabs -->
-          <div class="menu-tabs">
-
-            <button id="chats-tab" class="active" type="button">
-              <i class="fa-solid fa-message"></i>
-              چت‌ها
-            </button>
-
-            <button id="contacts-tab" type="button">
-              <i class="fa-solid fa-users"></i>
-              مخاطبین
-            </button>
-
-            <button id="profile-tab" type="button">
-              <i class="fa-solid fa-user"></i>
-              پروفایل
-            </button>
-
-          </div>
-
-          <!-- Conversations -->
-          <div class="section-heading">
-            <h3>همه گفتگوها</h3>
-          </div>
-
-          <div id="conversation-list"></div>
-
-          <!-- Sidebar footer -->
-          <div class="sidebar-footer">
-            <button id="about-btn" type="button">
-              <i class="fa-solid fa-circle-info"></i>
-              درباره بهی
-            </button>
-          </div>
-
-        </aside>
-
-        <!-- CHAT WINDOW -->
-        <section class="chat-window">
-
-          <!-- Chat header -->
-          <header id="chat-header" class="chat-header">
-
-            <div class="empty-avatar">
-              <i class="fa-solid fa-comments"></i>
-            </div>
-
-            <div>
-              <strong>بهی مسنجر</strong>
-              <p>یک گفتگو انتخاب کنید</p>
-            </div>
-
-          </header>
-
-          <!-- Messages -->
-          <div id="messages" class="messages">
-
-            <div class="welcome-chat">
-
-              <div class="welcome-logo">B</div>
-
-              <h2>به بهی خوش آمدید</h2>
-
-              <p>
-                از فهرست گفتگوها یک نفر را انتخاب کنید
-                یا با آیدی اختصاصی جستجو کنید.
-              </p>
-
-            </div>
-
-          </div>
-
-          <!-- Message form -->
-          <form id="message-form" class="message-form">
-
-            <button
-              id="attach-btn"
-              class="attach-button"
-              type="button"
-              aria-label="پیوست">
-              <i class="fa-solid fa-paperclip"></i>
-            </button>
-
-            <input
-              id="message-input"
-              type="text"
-              placeholder="پیام خود را بنویسید..."
-              autocomplete="off"
-              disabled>
-
-            <button
-              class="send-button"
-              type="submit"
-              aria-label="ارسال پیام">
-              <i class="fa-solid fa-paper-plane"></i>
-            </button>
-
-          </form>
-
-        </section>
-
-      </div>
-
-      <!-- MOBILE BOTTOM NAV -->
-      <nav class="mobile-nav">
-
-        <button
-          type="button"
-          data-mobile-tab="chats"
-          class="active">
-
-          <i class="fa-solid fa-message"></i>
-          <span>چت‌ها</span>
-        </button>
-
-        <button
-          type="button"
-          data-mobile-tab="contacts">
-
-          <i class="fa-solid fa-users"></i>
-          <span>مخاطبین</span>
-        </button>
-
-        <button
-          type="button"
-          data-mobile-tab="profile">
-
-          <i class="fa-solid fa-user"></i>
-          <span>پروفایل</span>
-        </button>
-
-      </nav>
-
-    </section>
-
-  </main>
-
-  <footer>
-    <p>Behy Messenger</p>
-  </footer>
-
-</div>
-
-<!-- CONFIG -->
-<script src="./config.js"></script>
-
-<!-- APP SCRIPT -->
-<script src="./main.js"></script>
+  <script src="./main.js"></script>
 
 </body>
 </html>
