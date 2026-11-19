@@ -1,16 +1,17 @@
 /* =========================================
    BEHY MESSENGER — MAIN.JS
+   Telegram-inspired mobile navigation
 ========================================= */
 
 const config = window.SUPABASE_CONFIG;
 
-if (!config || !config.url || !config.anonKey) {
+if (!config?.url || !config?.anonKey) {
   alert("تنظیمات اتصال به سرور پیدا نشد.");
-  throw new Error("Supabase configuration missing");
+  throw new Error("Supabase config missing");
 }
 
 if (!window.supabase?.createClient) {
-  alert("کتابخانه اتصال به سرور بارگذاری نشده است.");
+  alert("کتابخانه Supabase بارگذاری نشده است.");
   throw new Error("Supabase library missing");
 }
 
@@ -24,6 +25,8 @@ let realtimeChannel = null;
 let authMode = "login";
 let savedMode = false;
 let isBusy = false;
+let settingsOpen = false;
+let searchOpen = false;
 
 const THEME_KEY = "behy-theme";
 
@@ -44,41 +47,15 @@ function cleanUsername(value) {
 }
 
 function cleanHandle(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/^@/, "");
+  return String(value || "").trim().toLowerCase().replace(/^@/, "");
 }
 
 function isMobile() {
-  return window.matchMedia("(max-width: 760px)").matches;
+  return window.matchMedia("(max-width: 700px)").matches;
 }
 
 function notify(message) {
   alert(message);
-}
-
-function setBusy(button, busy, text) {
-  if (!button) return;
-  button.disabled = busy;
-
-  if (busy) {
-    button.dataset.oldText = button.textContent;
-    button.textContent = text || "لطفاً صبر کنید...";
-  } else if (button.dataset.oldText) {
-    button.textContent = button.dataset.oldText;
-    delete button.dataset.oldText;
-  }
-}
-
-function showMessage(message, type = "info") {
-  const el = $("auth-message");
-  if (!el) {
-    notify(message);
-    return;
-  }
-  el.textContent = message;
-  el.style.color = type === "error" ? "#d33" : "#2481d7";
 }
 
 function formatTime(value) {
@@ -100,33 +77,54 @@ function formatDate(value) {
   });
 }
 
+function showMessage(message, type = "info") {
+  const el = $("auth-message");
+  if (!el) return;
+  el.textContent = message;
+  el.style.color = type === "error" ? "#d33" : "#2481d7";
+}
+
+function setBusy(button, busy, text) {
+  if (!button) return;
+
+  button.disabled = busy;
+
+  if (busy) {
+    button.dataset.oldText = button.innerHTML;
+    button.textContent = text || "در حال انجام...";
+  } else if (button.dataset.oldText) {
+    button.innerHTML = button.dataset.oldText;
+    delete button.dataset.oldText;
+  }
+}
+
 /* ---------- Theme ---------- */
 
 function applyTheme(theme) {
   const dark = theme === "dark";
+
+  document.body.classList.toggle("dark", dark);
   document.documentElement.dataset.theme = dark ? "dark" : "light";
 
   const root = document.documentElement.style;
 
   if (dark) {
     root.setProperty("--bg", "#101923");
-    root.setProperty("--white", "#172532");
+    root.setProperty("--surface", "#172532");
     root.setProperty("--text", "#edf4fa");
     root.setProperty("--muted", "#9aabba");
     root.setProperty("--border", "#293b4b");
     root.setProperty("--hover", "#203343");
-    root.setProperty("--green", "#244c3a");
   } else {
     root.setProperty("--bg", "#f4f7fb");
-    root.setProperty("--white", "#ffffff");
+    root.setProperty("--surface", "#ffffff");
     root.setProperty("--text", "#17212b");
     root.setProperty("--muted", "#8193a5");
     root.setProperty("--border", "#e6edf3");
     root.setProperty("--hover", "#f0f6fc");
-    root.setProperty("--green", "#d9fdd3");
   }
 
-  localStorage.setItem(THEME_KEY, dark ? "dark" : "light");
+  localStorage.setItem(THEME_KEY, theme);
 }
 
 function loadTheme() {
@@ -136,7 +134,8 @@ function loadTheme() {
 function toggleTheme() {
   const current = localStorage.getItem(THEME_KEY) || "light";
   applyTheme(current === "dark" ? "light" : "dark");
-  openSettings();
+
+  if (currentProfile) showProfile();
 }
 
 /* ---------- Navigation ---------- */
@@ -148,12 +147,13 @@ function setMobileTab(tab) {
 }
 
 function showMobileList() {
+  $("chat-layout")?.classList.remove("chat-open");
   $("chat-layout")?.classList.remove("mobile-chat-open");
 }
 
 function showMobileChat() {
   if (isMobile()) {
-    $("chat-layout")?.classList.add("mobile-chat-open");
+    $("chat-layout")?.classList.add("chat-open");
   }
 }
 
@@ -167,6 +167,34 @@ function showChat() {
   $("chat-section").hidden = false;
 }
 
+/* ---------- Search ---------- */
+
+function toggleSearch() {
+  const box = document.querySelector(".search-box");
+  if (!box) return;
+
+  searchOpen = !searchOpen;
+  box.style.display = searchOpen ? "flex" : "none";
+
+  if (searchOpen) {
+    showChats();
+    $("search-user")?.focus();
+  } else {
+    $("search-user").value = "";
+    $("search-results").innerHTML = "";
+  }
+}
+
+function closeSearch() {
+  searchOpen = false;
+
+  const box = document.querySelector(".search-box");
+  if (box) box.style.display = "none";
+
+  if ($("search-user")) $("search-user").value = "";
+  if ($("search-results")) $("search-results").innerHTML = "";
+}
+
 /* ---------- Authentication ---------- */
 
 function setAuthMode(mode) {
@@ -175,15 +203,11 @@ function setAuthMode(mode) {
   $("login-tab")?.classList.toggle("primary", mode === "login");
   $("signup-tab")?.classList.toggle("primary", mode === "signup");
 
-  if ($("password")) {
-    $("password").autocomplete =
-      mode === "signup" ? "new-password" : "current-password";
-  }
+  $("auth-submit").textContent =
+    mode === "signup" ? "ساخت حساب کاربری" : "ورود به حساب";
 
-  if ($("auth-submit")) {
-    $("auth-submit").textContent =
-      mode === "signup" ? "ساخت حساب کاربری" : "ورود به حساب";
-  }
+  $("password").autocomplete =
+    mode === "signup" ? "new-password" : "current-password";
 
   showMessage(
     mode === "signup"
@@ -196,15 +220,12 @@ async function handleAuth(event) {
   event.preventDefault();
   if (isBusy) return;
 
-  const username = cleanUsername($("username")?.value);
-  const password = $("password")?.value || "";
+  const username = cleanUsername($("username").value);
+  const password = $("password").value;
   const submit = $("auth-submit");
 
   if (!/^[a-z0-9_]{3,24}$/.test(username)) {
-    showMessage(
-      "نام کاربری باید ۳ تا ۲۴ حرف انگلیسی، عدد یا زیرخط باشد.",
-      "error"
-    );
+    showMessage("نام کاربری باید ۳ تا ۲۴ حرف انگلیسی، عدد یا زیرخط باشد.", "error");
     return;
   }
 
@@ -242,7 +263,7 @@ async function handleAuth(event) {
 
     await loadUser();
   } catch (error) {
-    console.error("Authentication error:", error);
+    console.error(error);
     showMessage(error.message || "ارتباط با سرور برقرار نشد.", "error");
   } finally {
     isBusy = false;
@@ -250,7 +271,7 @@ async function handleAuth(event) {
   }
 }
 
-/* ---------- Profile ---------- */
+/* ---------- Profile Loading ---------- */
 
 async function loadUser() {
   const { data, error } = await db.auth.getUser();
@@ -266,7 +287,6 @@ async function loadUser() {
     currentUser.user_metadata?.username ||
     currentUser.email?.split("@")[0];
 
-  // پروفایل قبلی را حفظ می‌کند تا آیدی کاربر پاک نشود
   const { data: existing, error: readError } = await db
     .from("profiles")
     .select("*")
@@ -304,18 +324,20 @@ async function loadUser() {
     currentProfile.display_name || currentProfile.username;
 
   showChat();
+  closeSearch();
   showChats();
   await loadConversations();
   subscribeToMessages();
 }
 
+/* ---------- Edit Profile ---------- */
+
 async function editProfile() {
   if (!currentProfile) return;
 
-  const oldName =
-    currentProfile.display_name || currentProfile.username;
+  const oldName = currentProfile.display_name || currentProfile.username;
+  const newName = prompt("نام نمایشی جدید:", oldName);
 
-  const newName = prompt("نام نمایشی جدید را وارد کنید:", oldName);
   if (newName === null) return;
 
   const displayName = newName.trim();
@@ -333,18 +355,17 @@ async function editProfile() {
     .single();
 
   if (error) {
-    notify("ویرایش پروفایل انجام نشد: " + error.message);
+    notify("ویرایش پروفایل ناموفق بود: " + error.message);
     return;
   }
 
   currentProfile = data;
   $("current-user").textContent = data.display_name;
-
   showProfile();
-  notify("نام نمایشی با موفقیت تغییر کرد.");
+  notify("نام نمایشی تغییر کرد.");
 }
 
-/* ---------- Set / Change Handle ---------- */
+/* ---------- Handle ---------- */
 
 async function editHandle() {
   if (!currentUser || !currentProfile) return;
@@ -352,9 +373,7 @@ async function editHandle() {
   const oldHandle = currentProfile.handle || "";
 
   const value = prompt(
-    "آیدی اختصاصی خود را وارد کنید.\n" +
-    "فقط حروف انگلیسی، عدد و زیرخط؛ ۳ تا ۲۴ کاراکتر.\n" +
-    "مثال: mohammad123",
+    "آیدی اختصاصی شما (فقط انگلیسی، عدد و زیرخط):",
     oldHandle
   );
 
@@ -379,8 +398,8 @@ async function editHandle() {
     return;
   }
 
-  if (taken && taken.length > 0) {
-    notify("این آیدی قبلاً انتخاب شده است. آیدی دیگری انتخاب کن.");
+  if (taken?.length) {
+    notify("این آیدی قبلاً گرفته شده است.");
     return;
   }
 
@@ -392,33 +411,30 @@ async function editHandle() {
     .single();
 
   if (error) {
-    console.error(error);
-    notify("تغییر آیدی ناموفق بود: " + error.message);
+    notify("ثبت آیدی ناموفق بود: " + error.message);
     return;
   }
 
   currentProfile = data;
   showProfile();
-  notify("آیدی شما با موفقیت ثبت شد: @" + handle);
+  notify("آیدی ثبت شد: @" + handle);
 }
 
-/* ---------- Search Users by Handle ---------- */
+/* ---------- User Search ---------- */
 
 async function searchUsers() {
   if (!currentUser) return;
 
-  const rawTerm = $("search-user")?.value || "";
-  const term = cleanHandle(rawTerm);
+  const term = cleanHandle($("search-user").value);
   const results = $("search-results");
 
   if (term.length < 2) {
-    results.textContent = "حداقل دو حرف از آیدی وارد کنید.";
+    results.textContent = "حداقل دو حرف وارد کنید.";
     return;
   }
 
   results.textContent = "در حال جست‌وجو...";
 
-  // جست‌وجو در آیدی اختصاصی و نام کاربری قدیمی
   const { data, error } = await db
     .from("profiles")
     .select("id, username, display_name, handle")
@@ -428,12 +444,12 @@ async function searchUsers() {
 
   if (error) {
     console.error(error);
-    results.textContent = "خطا در جست‌وجوی کاربران.";
+    results.textContent = "خطا در جست‌وجو.";
     return;
   }
 
-  if (!data || !data.length) {
-    results.textContent = "کاربری با این آیدی پیدا نشد.";
+  if (!data?.length) {
+    results.textContent = "کاربری پیدا نشد.";
     return;
   }
 
@@ -454,7 +470,7 @@ async function searchUsers() {
   });
 }
 
-/* ---------- Conversations ---------- */
+/* ---------- Conversation List ---------- */
 
 async function loadConversations() {
   if (!currentUser) return;
@@ -464,11 +480,9 @@ async function loadConversations() {
   const { data: messages, error } = await db
     .from("messages")
     .select("sender_id, receiver_id, content, created_at")
-    .or(
-      `sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`
-    )
+    .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
     .order("created_at", { ascending: false })
-    .limit(200);
+    .limit(300);
 
   if (error) {
     console.error(error);
@@ -478,21 +492,23 @@ async function loadConversations() {
 
   const latest = new Map();
 
-  messages.forEach(message => {
-    const otherId =
-      message.sender_id === currentUser.id
-        ? message.receiver_id
-        : message.sender_id;
+  (messages || []).forEach(message => {
+    const otherId = message.sender_id === currentUser.id
+      ? message.receiver_id
+      : message.sender_id;
 
-    if (otherId && !latest.has(otherId)) {
-      latest.set(otherId, message);
-    }
+    if (otherId && !latest.has(otherId)) latest.set(otherId, message);
   });
 
   const ids = [...latest.keys()];
 
   if (!ids.length) {
-    list.textContent = "هنوز گفت‌وگویی ندارید.";
+    list.innerHTML = `
+      <div class="welcome-chat">
+        <p>هنوز گفتگویی ندارید.</p>
+        <p>برای شروع روی ذره‌بین بزنید و آیدی دوستتان را جستجو کنید.</p>
+      </div>
+    `;
     return;
   }
 
@@ -506,22 +522,22 @@ async function loadConversations() {
     return;
   }
 
-  const sortedUsers = users.sort((a, b) => {
-    const aTime = new Date(latest.get(a.id)?.created_at || 0).getTime();
-    const bTime = new Date(latest.get(b.id)?.created_at || 0).getTime();
-    return bTime - aTime;
+  const sorted = (users || []).sort((a, b) => {
+    const ta = new Date(latest.get(a.id)?.created_at || 0).getTime();
+    const tb = new Date(latest.get(b.id)?.created_at || 0).getTime();
+    return tb - ta;
   });
 
-  list.innerHTML = sortedUsers.map(user => {
+  list.innerHTML = sorted.map(user => {
     const last = latest.get(user.id);
-    const handle = user.handle || user.username;
+    const title = user.display_name || user.username;
 
     return `
       <button class="conversation-item"
         type="button"
         data-user-id="${escapeHTML(user.id)}">
-        <strong>${escapeHTML(user.display_name || user.username)}</strong>
-        <small>@${escapeHTML(handle)}</small>
+        <strong>${escapeHTML(title)}</strong>
+        <small>@${escapeHTML(user.handle || user.username)}</small>
         <small>${escapeHTML(last?.content || "")}</small>
         <small>${escapeHTML(formatTime(last?.created_at))}</small>
       </button>
@@ -530,7 +546,7 @@ async function loadConversations() {
 
   list.querySelectorAll("[data-user-id]").forEach(button => {
     button.addEventListener("click", () => {
-      const user = sortedUsers.find(u => u.id === button.dataset.userId);
+      const user = sorted.find(u => u.id === button.dataset.userId);
       if (user) openChat(user);
     });
   });
@@ -538,7 +554,7 @@ async function loadConversations() {
 
 /* ---------- Chat Header ---------- */
 
-function renderChatHeader(title, subtitle, icon) {
+function renderChatHeader(title, subtitle, icon = "fa-solid fa-user") {
   $("chat-header").innerHTML = `
     <button id="mobile-back-btn"
       class="mobile-back-btn"
@@ -551,16 +567,14 @@ function renderChatHeader(title, subtitle, icon) {
       <i class="${escapeHTML(icon)}"></i>
     </div>
 
-    <div>
+    <div class="chat-header-info">
       <strong>${escapeHTML(title)}</strong>
       <p>${escapeHTML(subtitle)}</p>
     </div>
 
-    <div class="chat-actions">
-      <button id="chat-info-btn" type="button" aria-label="اطلاعات">
-        <i class="fa-solid fa-ellipsis-vertical"></i>
-      </button>
-    </div>
+    <button id="chat-info-btn" type="button" aria-label="اطلاعات گفتگو">
+      <i class="fa-solid fa-ellipsis-vertical"></i>
+    </button>
   `;
 
   $("mobile-back-btn")?.addEventListener("click", showMobileList);
@@ -568,10 +582,8 @@ function renderChatHeader(title, subtitle, icon) {
   $("chat-info-btn")?.addEventListener("click", () => {
     if (activeChat) {
       notify(
-        "گفتگو با " +
-        (activeChat.display_name || activeChat.username) +
-        "\nآیدی: @" +
-        (activeChat.handle || activeChat.username)
+        "نام: " + (activeChat.display_name || activeChat.username) +
+        "\nآیدی: @" + (activeChat.handle || activeChat.username)
       );
     } else {
       notify("پیام‌های ذخیره‌شده شما");
@@ -582,17 +594,17 @@ function renderChatHeader(title, subtitle, icon) {
 /* ---------- Open Chat ---------- */
 
 async function openChat(user) {
-  if (!user || !user.id) return;
+  if (!user?.id) return;
 
   savedMode = false;
   activeChat = user;
+  settingsOpen = false;
 
   setMobileTab("chats");
 
   renderChatHeader(
     user.display_name || user.username,
-    "@" + (user.handle || user.username),
-    "fa-solid fa-user"
+    "@" + (user.handle || user.username)
   );
 
   $("message-input").placeholder = "پیام خود را بنویسید...";
@@ -602,7 +614,7 @@ async function openChat(user) {
   await loadMessages();
 }
 
-/* ---------- Messages ---------- */
+/* ---------- Load Messages ---------- */
 
 async function loadMessages() {
   if (!activeChat || savedMode || !currentUser) return;
@@ -626,7 +638,7 @@ async function loadMessages() {
 
   const container = $("messages");
 
-  if (!data.length) {
+  if (!data?.length) {
     container.innerHTML = `
       <div class="welcome-chat">
         <div class="welcome-logo">B</div>
@@ -638,9 +650,7 @@ async function loadMessages() {
   }
 
   container.innerHTML = data.map(message => `
-    <div class="message ${
-      message.sender_id === currentUser.id ? "sent" : "received"
-    }">
+    <div class="message ${message.sender_id === currentUser.id ? "sent" : "received"}">
       <div>${escapeHTML(message.content)}</div>
       <small>${escapeHTML(formatTime(message.created_at))}</small>
       <button type="button"
@@ -657,9 +667,7 @@ async function loadMessages() {
       let content = "";
       try {
         content = decodeURIComponent(button.dataset.content);
-      } catch {
-        content = "";
-      }
+      } catch {}
       if (content) saveMessage(content);
     });
   });
@@ -683,10 +691,7 @@ async function sendMessage(event) {
     return;
   }
 
-  const sendButton = $("message-form")?.querySelector(
-    'button[type="submit"]'
-  );
-
+  const sendButton = $("message-form").querySelector('button[type="submit"]');
   if (sendButton) sendButton.disabled = true;
 
   try {
@@ -751,7 +756,7 @@ async function openSavedMessages() {
   savedMode = true;
   activeChat = null;
 
-  setMobileTab("saved");
+  setMobileTab("chats");
 
   renderChatHeader(
     "پیام‌های ذخیره‌شده",
@@ -782,12 +787,12 @@ async function loadSavedMessages() {
 
   const container = $("messages");
 
-  if (!data.length) {
+  if (!data?.length) {
     container.innerHTML = `
       <div class="welcome-chat">
         <div class="welcome-logo">B</div>
         <h2>پیام‌های ذخیره‌شده</h2>
-        <p>هنوز چیزی ذخیره نکرده‌اید.</p>
+        <p>اینجا می‌توانید پیام‌ها و یادداشت‌های خصوصی خودتان را ذخیره کنید.</p>
       </div>
     `;
     return;
@@ -807,9 +812,7 @@ async function loadSavedMessages() {
   `).join("");
 
   container.querySelectorAll(".delete-saved-btn").forEach(button => {
-    button.addEventListener("click", () => {
-      deleteSavedMessage(button.dataset.id);
-    });
+    button.addEventListener("click", () => deleteSavedMessage(button.dataset.id));
   });
 
   container.scrollTop = container.scrollHeight;
@@ -870,10 +873,10 @@ function subscribeToMessages() {
         }
       }
     })
-    .subscribe(status => console.log("Realtime:", status));
+    .subscribe();
 }
 
-/* ---------- Main Tabs ---------- */
+/* ---------- Tabs ---------- */
 
 function setActiveTab(id) {
   ["chats-tab", "contacts-tab", "profile-tab"].forEach(tab => {
@@ -881,72 +884,15 @@ function setActiveTab(id) {
   });
 }
 
-function showProfile() {
-  if (!currentProfile) return;
-
-  showMobileList();
-  setActiveTab("profile-tab");
-  setMobileTab("profile");
-
-  $("list-heading").textContent = "پروفایل من";
-  $("search-results").innerHTML = "";
-
-  const handle = currentProfile.handle || "";
-
-  $("conversation-list").innerHTML = `
-    <div class="welcome-chat">
-      <div class="welcome-logo">B</div>
-
-      <h3>${escapeHTML(
-        currentProfile.display_name || currentProfile.username
-      )}</h3>
-
-      <p>نام کاربری حساب:</p>
-      <p>@${escapeHTML(currentProfile.username)}</p>
-
-      <div style="margin:16px 0;padding:14px;border-radius:12px;background:var(--hover)">
-        <strong>آیدی اختصاصی شما</strong>
-        <p style="font-size:20px;margin:8px 0">
-          ${handle ? "@" + escapeHTML(handle) : "هنوز آیدی انتخاب نکرده‌اید"}
-        </p>
-      </div>
-
-      <button type="button" id="edit-handle-btn" class="primary">
-        <i class="fa-solid fa-at"></i>
-        ${handle ? "تغییر آیدی" : "انتخاب آیدی"}
-      </button>
-
-      <br><br>
-
-      <button type="button" id="edit-profile-btn">
-        <i class="fa-solid fa-pen"></i>
-        ویرایش نام نمایشی
-      </button>
-    </div>
-  `;
-
-  $("edit-handle-btn")?.addEventListener("click", editHandle);
-  $("edit-profile-btn")?.addEventListener("click", editProfile);
-}
-
-function showContacts() {
-  showMobileList();
-  setActiveTab("contacts-tab");
-  setMobileTab("contacts");
-
-  $("list-heading").textContent = "مخاطبین";
-  $("search-results").textContent =
-    "با آیدی اختصاصی کاربران جست‌وجو کنید.";
-  $("conversation-list").innerHTML = "";
-}
-
 function showChats() {
   showMobileList();
   setActiveTab("chats-tab");
   setMobileTab("chats");
 
-  $("list-heading").textContent = "گفتگوهای من";
+  settingsOpen = false;
+  $("list-heading").textContent = "گفتگوها";
   $("search-results").innerHTML = "";
+  $("conversation-list").innerHTML = "";
 
   if ($("message-input")) {
     $("message-input").placeholder = "پیام خود را بنویسید...";
@@ -955,62 +901,115 @@ function showChats() {
   loadConversations();
 }
 
-/* ---------- Settings ---------- */
-
-function openSettings() {
-  if (!currentUser) return;
-
+function showContacts() {
   showMobileList();
-  setMobileTab("settings");
+  setActiveTab("contacts-tab");
+  setMobileTab("contacts");
 
-  const currentTheme = localStorage.getItem(THEME_KEY) || "light";
-
-  $("list-heading").textContent = "تنظیمات";
+  settingsOpen = false;
+  $("list-heading").textContent = "مخاطبین";
   $("search-results").innerHTML = "";
-
   $("conversation-list").innerHTML = `
     <div class="welcome-chat">
       <div class="welcome-logo">
-        <i class="fa-solid fa-gear"></i>
+        <i class="fa-solid fa-users"></i>
+      </div>
+      <h2>مخاطبین</h2>
+      <p>برای پیدا کردن کاربران بهی، ذره‌بین بالای صفحه را بزنید و آیدی را جستجو کنید.</p>
+    </div>
+  `;
+}
+
+/* ---------- Profile & Settings ---------- */
+
+function showProfile() {
+  if (!currentProfile) return;
+
+  showMobileList();
+  closeSearch();
+  setActiveTab("profile-tab");
+  setMobileTab("profile");
+
+  settingsOpen = false;
+  $("list-heading").textContent = "پروفایل";
+  $("search-results").innerHTML = "";
+
+  const handle = currentProfile.handle || "";
+  const theme = localStorage.getItem(THEME_KEY) || "light";
+
+  $("conversation-list").innerHTML = `
+    <div class="welcome-chat profile-view">
+
+      <div class="welcome-logo">
+        <i class="fa-solid fa-user"></i>
       </div>
 
-      <h3>تنظیمات بهی</h3>
-      <p>تنظیمات ظاهری و حساب کاربری</p>
+      <h2>${escapeHTML(currentProfile.display_name || currentProfile.username)}</h2>
 
-      <br>
+      <p>نام کاربری</p>
+      <strong>@${escapeHTML(currentProfile.username)}</strong>
 
-      <button type="button" id="theme-toggle-btn">
-        <i class="fa-solid fa-moon"></i>
-        تغییر پوسته (${currentTheme === "dark" ? "تیره" : "روشن"})
+      <div style="margin:18px 0;padding:16px;border-radius:14px;background:var(--hover)">
+        <p style="margin:0 0 8px">آیدی اختصاصی</p>
+        <strong style="font-size:20px">
+          ${handle ? "@" + escapeHTML(handle) : "هنوز انتخاب نشده"}
+        </strong>
+      </div>
+
+      <button id="edit-handle-btn" class="primary" type="button">
+        <i class="fa-solid fa-at"></i>
+        ${handle ? "تغییر آیدی" : "انتخاب آیدی"}
       </button>
 
       <br><br>
 
-      <button type="button" id="settings-profile-btn">
-        <i class="fa-solid fa-user-pen"></i>
-        ویرایش پروفایل
+      <button id="edit-profile-btn" type="button">
+        <i class="fa-solid fa-pen"></i>
+        تغییر نام نمایشی
       </button>
 
       <br><br>
 
-      <button type="button" id="settings-about-btn">
-        <i class="fa-solid fa-circle-info"></i>
-        درباره بهی
+      <button id="profile-settings-btn" type="button">
+        <i class="fa-solid fa-gear"></i>
+        تنظیمات
       </button>
 
-      <br><br>
+      <div id="profile-settings" hidden style="margin-top:14px;padding:15px;border-radius:14px;background:var(--hover)">
+        <button id="theme-toggle-btn" type="button">
+          <i class="fa-solid fa-moon"></i>
+          تغییر پوسته (${theme === "dark" ? "تیره" : "روشن"})
+        </button>
 
-      <button type="button" id="settings-logout-btn">
-        <i class="fa-solid fa-right-from-bracket"></i>
-        خروج از حساب
-      </button>
+        <br><br>
+
+        <button id="profile-about-btn" type="button">
+          <i class="fa-solid fa-circle-info"></i>
+          درباره بهی
+        </button>
+
+        <br><br>
+
+        <button id="profile-logout-btn" type="button" style="color:#e45454">
+          <i class="fa-solid fa-right-from-bracket"></i>
+          خروج از حساب
+        </button>
+      </div>
+
     </div>
   `;
 
+  $("edit-handle-btn")?.addEventListener("click", editHandle);
+  $("edit-profile-btn")?.addEventListener("click", editProfile);
+
+  $("profile-settings-btn")?.addEventListener("click", () => {
+    const panel = $("profile-settings");
+    panel.hidden = !panel.hidden;
+  });
+
   $("theme-toggle-btn")?.addEventListener("click", toggleTheme);
-  $("settings-profile-btn")?.addEventListener("click", editProfile);
-  $("settings-about-btn")?.addEventListener("click", showAbout);
-  $("settings-logout-btn")?.addEventListener("click", logout);
+  $("profile-about-btn")?.addEventListener("click", showAbout);
+  $("profile-logout-btn")?.addEventListener("click", logout);
 }
 
 /* ---------- About ---------- */
@@ -1018,7 +1017,7 @@ function openSettings() {
 function showAbout() {
   notify(
     "Behy Messenger\nپیام‌رسان بهی\n\n" +
-    "نسخه آزمایشی\nارتباطی ساده، سریع و امن"
+    "نسخه آزمایشی\nپیام‌رسانی ساده و سریع"
   );
 }
 
@@ -1027,7 +1026,7 @@ function showAbout() {
 function handleAttachment() {
   notify(
     "ارسال فایل هنوز فعال نشده است.\n" +
-    "برای فعال‌سازی باید فضای ذخیره‌سازی Supabase تنظیم شود."
+    "برای فعال‌سازی باید فضای ذخیره‌سازی تنظیم شود."
   );
 }
 
@@ -1052,6 +1051,7 @@ async function logout() {
   currentProfile = null;
   activeChat = null;
   savedMode = false;
+  settingsOpen = false;
 
   $("messages").innerHTML = "";
   $("conversation-list").innerHTML = "";
@@ -1059,15 +1059,18 @@ async function logout() {
   showAuth();
 }
 
-/* ---------- Initialization ---------- */
+/* ---------- Initialize ---------- */
 
 document.addEventListener("DOMContentLoaded", async () => {
   loadTheme();
   showAuth();
 
+  // سرچ در ابتدا بسته باشد
+  const searchBox = document.querySelector(".search-box");
+  if (searchBox) searchBox.style.display = "none";
+
   $("login-tab")?.addEventListener("click", () => setAuthMode("login"));
   $("signup-tab")?.addEventListener("click", () => setAuthMode("signup"));
-
   $("auth-form")?.addEventListener("submit", handleAuth);
 
   $("search-btn")?.addEventListener("click", searchUsers);
@@ -1081,39 +1084,23 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   $("message-form")?.addEventListener("submit", sendMessage);
 
-  $("logout-btn")?.addEventListener("click", logout);
-
-  $("saved-messages-btn")?.addEventListener(
-    "click",
-    openSavedMessages
-  );
-
+  $("saved-messages-btn")?.addEventListener("click", openSavedMessages);
   $("chats-tab")?.addEventListener("click", showChats);
   $("contacts-tab")?.addEventListener("click", showContacts);
   $("profile-tab")?.addEventListener("click", showProfile);
-
-  $("settings-btn")?.addEventListener("click", openSettings);
-  $("about-btn")?.addEventListener("click", showAbout);
-
-  $("new-chat-btn")?.addEventListener("click", () => {
-    $("search-user")?.focus();
-    $("search-user")?.scrollIntoView({
-      behavior: "smooth",
-      block: "center"
-    });
-  });
-
   $("attach-btn")?.addEventListener("click", handleAttachment);
 
+  // ذره‌بین هدر
+  $("new-chat-btn")?.addEventListener("click", toggleSearch);
+
+  // منوی پایین موبایل
   document.querySelectorAll("[data-mobile-tab]").forEach(button => {
     button.addEventListener("click", () => {
       const tab = button.dataset.mobileTab;
 
       if (tab === "chats") showChats();
       if (tab === "contacts") showContacts();
-      if (tab === "saved") openSavedMessages();
       if (tab === "profile") showProfile();
-      if (tab === "settings") openSettings();
     });
   });
 
