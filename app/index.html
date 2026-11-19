@@ -91,8 +91,7 @@
 
           <div class="search-box">
             <i class="fa-solid fa-magnifying-glass"></i>
-            <input id="search-user" type="text"
-              placeholder="جستجوی نام کاربری...">
+            <input id="search-user" type="text" placeholder="جستجوی نام کاربری...">
             <button id="search-btn" type="button">جستجو</button>
           </div>
 
@@ -142,6 +141,9 @@
         <section class="chat-window">
 
           <div id="chat-header" class="chat-header">
+            <button id="mobile-back-btn" class="mobile-back-btn" type="button" aria-label="بازگشت">
+              <i class="fa-solid fa-arrow-right"></i>
+            </button>
             <div class="empty-avatar">
               <i class="fa-solid fa-comments"></i>
             </div>
@@ -178,6 +180,29 @@
 
         </section>
       </div>
+
+      <nav class="mobile-nav" aria-label="منوی اصلی">
+        <button type="button" class="active" data-mobile-tab="chats">
+          <i class="fa-solid fa-comments"></i>
+          <span>چت‌ها</span>
+        </button>
+        <button type="button" data-mobile-tab="contacts">
+          <i class="fa-solid fa-address-book"></i>
+          <span>مخاطبین</span>
+        </button>
+        <button type="button" data-mobile-tab="saved">
+          <i class="fa-solid fa-bookmark"></i>
+          <span>ذخیره‌شده</span>
+        </button>
+        <button type="button" data-mobile-tab="profile">
+          <i class="fa-solid fa-user"></i>
+          <span>پروفایل</span>
+        </button>
+        <button type="button" data-mobile-tab="settings">
+          <i class="fa-solid fa-gear"></i>
+          <span>تنظیمات</span>
+        </button>
+      </nav>
 
     </section>
   </main>
