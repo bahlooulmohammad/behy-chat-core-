@@ -1025,3 +1025,37 @@ body.dark .profile-card {
     display: flex !important;
   }
 }
+/* FIX MOBILE: یک پنل در هر لحظه */
+@media (max-width: 700px) {
+  #chat-layout {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+  }
+
+  #chat-layout .sidebar {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    display: flex !important;
+  }
+
+  #chat-layout .chat-panel {
+    display: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 5 !important;
+    background: var(--surface) !important;
+  }
+
+  #chat-layout.chat-open .sidebar {
+    display: none !important;
+  }
+
+  #chat-layout.chat-open .chat-panel {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+}
