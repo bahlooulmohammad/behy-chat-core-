@@ -15,9 +15,6 @@
 <div class="app">
 
   <header class="header">
-    <button class="menu-button" type="button" aria-label="منو">
-      <i class="fa-solid fa-bars"></i>
-    </button>
     <div class="brand">
       <div class="logo">B</div>
       <div>
@@ -25,9 +22,6 @@
         <p>پیام‌رسان بهی</p>
       </div>
     </div>
-    <button class="header-icon" type="button" aria-label="جستجو">
-      <i class="fa-solid fa-magnifying-glass"></i>
-    </button>
   </header>
 
   <main id="main">
@@ -90,7 +84,7 @@
 
           <div class="sidebar-title">
             <h2>پیام‌ها</h2>
-            <button type="button" class="round-button" aria-label="پیام جدید">
+            <button id="new-chat-btn" type="button" class="round-button" aria-label="پیام جدید">
               <i class="fa-solid fa-pen-to-square"></i>
             </button>
           </div>
@@ -103,35 +97,41 @@
           </div>
 
           <div class="menu-tabs">
-            <button type="button" class="active">
+            <button id="chats-tab" type="button" class="active">
               <i class="fa-solid fa-comments"></i>
               چت‌ها
             </button>
-            <button type="button">
+            <button id="contacts-tab" type="button">
               <i class="fa-solid fa-address-book"></i>
               مخاطبین
             </button>
-            <button type="button">
+            <button id="profile-tab" type="button">
               <i class="fa-solid fa-user"></i>
               پروفایل
             </button>
           </div>
 
+          <button id="saved-messages-btn" type="button" class="conversation-item">
+            <i class="fa-solid fa-bookmark"></i>
+            پیام‌های ذخیره‌شده
+            <small>فضای خصوصی من</small>
+          </button>
+
           <div id="search-results"></div>
 
           <div class="section-heading">
-            <h3>گفتگوهای من</h3>
+            <h3 id="list-heading">گفتگوهای من</h3>
             <span>همه پیام‌ها</span>
           </div>
 
           <div id="conversation-list"></div>
 
           <div class="sidebar-footer">
-            <button type="button">
+            <button id="settings-btn" type="button">
               <i class="fa-solid fa-gear"></i>
               تنظیمات
             </button>
-            <button type="button">
+            <button id="about-btn" type="button">
               <i class="fa-solid fa-circle-info"></i>
               درباره بهی
             </button>
@@ -150,10 +150,7 @@
               <p>یک گفتگو را انتخاب کنید</p>
             </div>
             <div class="chat-actions">
-              <button type="button" aria-label="تماس">
-                <i class="fa-solid fa-phone"></i>
-              </button>
-              <button type="button" aria-label="اطلاعات">
+              <button id="chat-info-btn" type="button" aria-label="اطلاعات">
                 <i class="fa-solid fa-ellipsis-vertical"></i>
               </button>
             </div>
@@ -168,7 +165,7 @@
           </div>
 
           <form id="message-form" class="message-form">
-            <button type="button" class="attach-button" aria-label="پیوست">
+            <button type="button" id="attach-btn" class="attach-button" aria-label="پیوست">
               <i class="fa-solid fa-paperclip"></i>
             </button>
             <input id="message-input" type="text"
@@ -181,25 +178,6 @@
 
         </section>
       </div>
-
-      <nav class="mobile-nav">
-        <button type="button" class="active">
-          <i class="fa-solid fa-comments"></i>
-          <span>چت‌ها</span>
-        </button>
-        <button type="button">
-          <i class="fa-solid fa-address-book"></i>
-          <span>مخاطبین</span>
-        </button>
-        <button type="button">
-          <i class="fa-solid fa-user"></i>
-          <span>پروفایل</span>
-        </button>
-        <button type="button">
-          <i class="fa-solid fa-gear"></i>
-          <span>تنظیمات</span>
-        </button>
-      </nav>
 
     </section>
   </main>
