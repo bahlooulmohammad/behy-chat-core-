@@ -1,90 +1,160 @@
+
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#101827">
-  <title>Behy Messenger</title>
+  <meta name="theme-color" content="#08111f">
+  <meta name="description" content="پیام‌رسان بهی؛ ارتباط سریع و ساده">
+  <title>Behy Messenger | پیام‌رسان بهی</title>
+
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
   <div class="app">
+
     <header class="header">
       <div class="brand">
         <div class="logo">B</div>
         <div>
           <h1>Behy Messenger</h1>
-          <p>پیام‌رسان شما</p>
+          <p>ارتباطی ساده، سریع و امن</p>
         </div>
       </div>
     </header>
 
     <main id="main">
-      <section id="auth-section" class="auth-section">
-        <div class="welcome">
-          <h2>خوش آمدید 👋</h2>
-          <p>برای شروع وارد حساب خود شوید یا ثبت‌نام کنید.</p>
-        </div>
 
+      <!-- بخش ورود و ثبت نام -->
+      <section id="auth-section" class="auth-section">
         <div class="auth-card">
+
+          <h2>خوش آمدی 👋</h2>
+          <p>برای ورود به پیام‌رسان بهی اطلاعاتت را وارد کن.</p>
+
           <div class="auth-tabs">
-            <button id="login-tab" class="active">ورود</button>
-            <button id="signup-tab">ثبت‌نام</button>
+            <button id="login-tab" type="button" class="primary">
+              ورود
+            </button>
+
+            <button id="signup-tab" type="button">
+              ثبت نام
+            </button>
           </div>
 
           <form id="auth-form">
             <label for="username">نام کاربری</label>
-            <input id="username" type="text" placeholder="نام کاربری" autocomplete="username" required>
+            <input
+              id="username"
+              name="username"
+              type="text"
+              placeholder="نام کاربری خود را وارد کنید"
+              autocomplete="username"
+              required
+            >
 
             <label for="password">رمز عبور</label>
-            <input id="password" type="password" placeholder="رمز عبور" autocomplete="current-password" required>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="رمز عبور"
+              autocomplete="current-password"
+              required
+            >
 
-            <button id="auth-submit" class="primary" type="submit">ورود</button>
-            <p id="auth-message" class="message"></p>
+            <button id="auth-submit" class="primary" type="submit">
+              ورود به حساب
+            </button>
+
+            <p id="auth-message" class="message" role="status"></p>
           </form>
+
         </div>
       </section>
 
+      <!-- بخش اصلی پیام‌رسان -->
       <section id="chat-section" hidden>
+
+        <div class="user-bar">
+          <div>
+            <span>حساب کاربری:</span>
+            <strong id="current-user"></strong>
+          </div>
+
+          <button id="logout-btn" type="button">
+            خروج
+          </button>
+        </div>
+
         <div class="chat-layout">
+
+          <!-- فهرست کاربران و گفتگوها -->
           <aside class="sidebar">
-            <div class="user-bar">
-              <span id="current-user"></span>
-              <button id="logout-btn">خروج</button>
+
+            <div class="search-box">
+              <input
+                id="search-user"
+                type="text"
+                placeholder="جستجوی نام کاربری..."
+              >
+
+              <button id="search-btn" type="button">
+                جستجو
+              </button>
             </div>
 
-            <h3>جستجوی کاربران</h3>
-            <div class="search-box">
-              <input id="search-user" type="text" placeholder="نام کاربری...">
-              <button id="search-btn">جستجو</button>
-            </div>
             <div id="search-results"></div>
 
-            <h3>گفتگوها</h3>
+            <h3>گفتگوهای من</h3>
             <div id="conversation-list"></div>
+
           </aside>
 
-          <section class="conversation">
+          <!-- صفحه گفتگو -->
+          <section class="chat-window">
+
             <div id="chat-header" class="chat-header">
-              <p>یک گفتگو انتخاب کنید</p>
+              یک گفتگو را انتخاب کنید
             </div>
 
-            <div id="messages" class="messages"></div>
+            <div id="messages" class="messages">
+              <p>برای شروع، یک کاربر را جستجو کنید.</p>
+            </div>
 
             <form id="message-form" class="message-form">
-              <input id="message-input" type="text" placeholder="پیامت را بنویس..." autocomplete="off">
-              <button type="submit">ارسال</button>
+              <input
+                id="message-input"
+                type="text"
+                placeholder="پیام خود را بنویسید..."
+                autocomplete="off"
+                required
+              >
+
+              <button type="submit" class="primary">
+                ارسال
+              </button>
             </form>
+
           </section>
         </div>
+
       </section>
+
     </main>
-    <footer>Behy Messenger · نسخه آزمایشی</footer>
+
+    <footer>
+      <p>Behy Messenger © 2026</p>
+      <p>ساخته شده برای ارتباط آسان‌تر</p>
+    </footer>
+
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="main.js"></script>
+
 </body>
 </html>
